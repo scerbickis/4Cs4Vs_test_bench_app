@@ -1,0 +1,9 @@
+#line 1 "C:\\Users\\Andrej Scerbickis\\OneDrive - Vilniaus Gedimino technikos universitetas\\Dokumentai\\univer\\bakalauras\\4Cs4Vs_test_bench_app\\test_bench_fw\\.vscode\\arduino.json"
+{
+    "port": "COM7",
+    "configuration": "target_core=cm7,split=50_50,security=none",
+    "board": "arduino:mbed_portenta:envie_m7",
+    "programmer": "stlink",
+    "sketch": "test_bench_fw.ino",
+    "output": "./build"
+}

@@ -1,0 +1,12 @@
+// The number of entries in the lookup table: L >= 2.22*2^(N/2)
+// N is the DAC resolution
+// L is the number of entries in the lookup table
+// So, for N = 16, L >= 2.22*2^(16/2) = 2.22*2^8 = 2.22*256 = 568.32
+// So, L = 1024
+
+65535/3*2 = 43690 = 0xAAAA
+65535/3*4 = 21844 = 0x5554
+0xAAAA + 0xAAAA = 0x15554
+
+
+M = 10; F = 2.6 Hz

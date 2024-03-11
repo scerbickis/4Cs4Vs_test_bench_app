@@ -1,0 +1,5 @@
+Calculate and save a sine look up table
+
+Write a program for generating a sine wave and sending the data to 16 bit DAC (LTC2666-16) via SPI using Arduino Portenta H7 board with Portenta Breakout.
+
+Write arduino code for calculating and saving a sine wave look up table which consists of 1024 points. The values have to be of type uint16_t and must be in range of 0 and 65535.

@@ -1,0 +1,11 @@
+{
+  "additionalFiles": "..\\..\\..,..\\..\\..,..\\..\\..,..\\..\\..,..\\..\\..,..\\..\\..\\..\\..,..\\..\\..\\..\\..,..\\..\\..\\..\\..,..\\..\\..\\..\\..,..\\..\\..\\..",
+  "builtInToolsFolders": "",
+  "compiler.optimization_flags": "",
+  "customBuildProperties": "",
+  "fqbn": "arduino:mbed_portenta:envie_m7:target_core=cm7,split=50_50,security=none",
+  "hardwareFolders": "C:\\Users\\Andrej Scerbickis\\AppData\\Local\\Arduino15\\packages",
+  "otherLibrariesFolders": "C:\\Users\\Andrej Scerbickis\\OneDrive - Vilniaus Gedimino technikos universitetas\\Dokumentai\\Arduino\\libraries",
+  "runtime.ide.version": "10607",
+  "sketchLocation": "C:\\Users\\Andrej Scerbickis\\OneDrive - Vilniaus Gedimino technikos universitetas\\Dokumentai\\univer\\bakalauras\\4Cs4Vs_test_bench_app\\dds_algorithm"
+}

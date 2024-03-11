@@ -1,0 +1,162 @@
+[
+  {
+    "Sourcefile": null,
+    "Include": "",
+    "Includepath": "C:\\Users\\Andrej Scerbickis\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\mbed_portenta\\4.1.1\\cores\\arduino"
+  },
+  {
+    "Sourcefile": null,
+    "Include": "",
+    "Includepath": "C:\\Users\\Andrej Scerbickis\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\mbed_portenta\\4.1.1\\variants\\PORTENTA_H7_M7"
+  },
+  {
+    "Sourcefile": "C:\\Users\\Andrej Scerbickis\\OneDrive - Vilniaus Gedimino technikos universitetas\\Dokumentai\\univer\\bakalauras\\4Cs4Vs_test_bench_app\\dds_algorithm\\dds_algorithm.bin\\sketch\\dds_algorithm.ino.cpp",
+    "Include": "Arduino_PortentaBreakout.h",
+    "Includepath": "C:\\Users\\Andrej Scerbickis\\OneDrive - Vilniaus Gedimino technikos universitetas\\Dokumentai\\Arduino\\libraries\\Arduino_PortentaBreakout\\src"
+  },
+  {
+    "Sourcefile": "C:\\Users\\Andrej Scerbickis\\OneDrive - Vilniaus Gedimino technikos universitetas\\Dokumentai\\univer\\bakalauras\\4Cs4Vs_test_bench_app\\dds_algorithm\\dds_algorithm.bin\\sketch\\dds_algorithm.ino.cpp",
+    "Include": "Wire.h",
+    "Includepath": "C:\\Users\\Andrej Scerbickis\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\mbed_portenta\\4.1.1\\libraries\\Wire"
+  },
+  {
+    "Sourcefile": "C:\\Users\\Andrej Scerbickis\\OneDrive - Vilniaus Gedimino technikos universitetas\\Dokumentai\\univer\\bakalauras\\4Cs4Vs_test_bench_app\\dds_algorithm\\dds_algorithm.bin\\sketch\\dds_algorithm.ino.cpp",
+    "Include": "SPI.h",
+    "Includepath": "C:\\Users\\Andrej Scerbickis\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\mbed_portenta\\4.1.1\\libraries\\SPI"
+  },
+  {
+    "Sourcefile": "C:\\Users\\Andrej Scerbickis\\OneDrive - Vilniaus Gedimino technikos universitetas\\Dokumentai\\univer\\bakalauras\\4Cs4Vs_test_bench_app\\dds_algorithm\\dds_algorithm.bin\\sketch\\dds_algorithm.ino.cpp",
+    "Include": "PDM.h",
+    "Includepath": "C:\\Users\\Andrej Scerbickis\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\mbed_portenta\\4.1.1\\libraries\\PDM\\src"
+  },
+  {
+    "Sourcefile": "C:\\Users\\Andrej Scerbickis\\OneDrive - Vilniaus Gedimino technikos universitetas\\Dokumentai\\univer\\bakalauras\\4Cs4Vs_test_bench_app\\dds_algorithm\\dds_algorithm.bin\\sketch\\dds_algorithm.ino.cpp",
+    "Include": "Portenta_Ethernet.h",
+    "Includepath": "C:\\Users\\Andrej Scerbickis\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\mbed_portenta\\4.1.1\\libraries\\Ethernet\\src"
+  },
+  {
+    "Sourcefile": "C:\\Users\\Andrej Scerbickis\\OneDrive - Vilniaus Gedimino technikos universitetas\\Dokumentai\\univer\\bakalauras\\4Cs4Vs_test_bench_app\\dds_algorithm\\dds_algorithm.bin\\sketch\\dds_algorithm.ino.cpp",
+    "Include": "SocketHelpers.h",
+    "Includepath": "C:\\Users\\Andrej Scerbickis\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\mbed_portenta\\4.1.1\\libraries\\SocketWrapper\\src"
+  },
+  {
+    "Sourcefile": "C:\\Users\\Andrej Scerbickis\\OneDrive - Vilniaus Gedimino technikos universitetas\\Dokumentai\\univer\\bakalauras\\4Cs4Vs_test_bench_app\\dds_algorithm\\dds_algorithm.bin\\sketch\\dds_algorithm.ino.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Andrej Scerbickis\\OneDrive - Vilniaus Gedimino technikos universitetas\\Dokumentai\\Arduino\\libraries\\Arduino_PortentaBreakout\\src\\utility\\Analog\\Analog.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Andrej Scerbickis\\OneDrive - Vilniaus Gedimino technikos universitetas\\Dokumentai\\Arduino\\libraries\\Arduino_PortentaBreakout\\src\\utility\\RTC\\RTC.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Andrej Scerbickis\\OneDrive - Vilniaus Gedimino technikos universitetas\\Dokumentai\\Arduino\\libraries\\Arduino_PortentaBreakout\\src\\utility\\RTC\\Timestamp.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Andrej Scerbickis\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\mbed_portenta\\4.1.1\\libraries\\Wire\\Wire.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Andrej Scerbickis\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\mbed_portenta\\4.1.1\\libraries\\SPI\\SPI.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Andrej Scerbickis\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\mbed_portenta\\4.1.1\\libraries\\PDM\\src\\STM32H747_SAI\\PDM.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Andrej Scerbickis\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\mbed_portenta\\4.1.1\\libraries\\PDM\\src\\STM32H747_SAI\\audio.c",
+    "Include": "pdm2pcm_glo.h",
+    "Includepath": "C:\\Users\\Andrej Scerbickis\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\mbed_portenta\\4.1.1\\libraries\\Portenta_Audio\\src"
+  },
+  {
+    "Sourcefile": "C:\\Users\\Andrej Scerbickis\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\mbed_portenta\\4.1.1\\libraries\\PDM\\src\\STM32H747_SAI\\audio.c",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Andrej Scerbickis\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\mbed_portenta\\4.1.1\\libraries\\PDM\\src\\STM32H747_dfsdm\\PDM.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Andrej Scerbickis\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\mbed_portenta\\4.1.1\\libraries\\PDM\\src\\STM32H747_dfsdm\\audio.c",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Andrej Scerbickis\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\mbed_portenta\\4.1.1\\libraries\\PDM\\src\\nrf52\\PDM.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Andrej Scerbickis\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\mbed_portenta\\4.1.1\\libraries\\PDM\\src\\rp2040\\OpenPDMFilter.c",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Andrej Scerbickis\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\mbed_portenta\\4.1.1\\libraries\\PDM\\src\\rp2040\\PDM.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Andrej Scerbickis\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\mbed_portenta\\4.1.1\\libraries\\PDM\\src\\utility\\PDMDoubleBuffer.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Andrej Scerbickis\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\mbed_portenta\\4.1.1\\libraries\\Ethernet\\src\\Ethernet.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Andrej Scerbickis\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\mbed_portenta\\4.1.1\\libraries\\Ethernet\\src\\EthernetServer.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Andrej Scerbickis\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\mbed_portenta\\4.1.1\\libraries\\SocketWrapper\\src\\AClient.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Andrej Scerbickis\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\mbed_portenta\\4.1.1\\libraries\\SocketWrapper\\src\\MbedClient.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Andrej Scerbickis\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\mbed_portenta\\4.1.1\\libraries\\SocketWrapper\\src\\MbedSSLClient.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Andrej Scerbickis\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\mbed_portenta\\4.1.1\\libraries\\SocketWrapper\\src\\MbedServer.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Andrej Scerbickis\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\mbed_portenta\\4.1.1\\libraries\\SocketWrapper\\src\\MbedUdp.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Andrej Scerbickis\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\mbed_portenta\\4.1.1\\libraries\\SocketWrapper\\src\\SocketHelpers.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Andrej Scerbickis\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\mbed_portenta\\4.1.1\\libraries\\SocketWrapper\\src\\utility\\http_parser\\http_parser.c",
+    "Include": "",
+    "Includepath": null
+  }
+]

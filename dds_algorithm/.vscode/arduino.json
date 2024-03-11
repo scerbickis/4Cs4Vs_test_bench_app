@@ -1,0 +1,7 @@
+{
+    "configuration": "target_core=cm7,split=50_50,security=none",
+    "board": "arduino:mbed_portenta:envie_m7",
+    "programmer": "stlink",
+    "sketch": "dds_algorithm.ino",
+    "output": "dds_algorithm.bin"
+}
