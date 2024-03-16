@@ -1,5 +1,5 @@
 import tkinter as tk
-import serial
+# import serial
 from math import sqrt
 
 # Create a serial connection to the Arduino Portenta H7
@@ -11,7 +11,7 @@ def round_half_up(float_number: float) -> int:
     else: return int(float_number - 0.5)
 
 # Function to send control parameters to the Arduino
-def update_amplitude(value):
+def update_amplitude(value, rms_label):
 
     amplitude = round_half_up(float(value)*6553.5)
     rms = round(float(value) / sqrt(2), 3)
@@ -35,7 +35,7 @@ def update_frequency(value):
     print(packet.hex(' '))
     # ser.write(packet)  # Send the command to the Arduino
 
-def update_harmonics(value):
+def update_harmonics(value, harmonics_var: tk.StringVar):
     
         harmonics = int(value)
     
@@ -56,206 +56,213 @@ def update_harmonics(value):
         print(packet.hex(' '))
         # ser.write(packet)  # Send the command to the Arduino
 
-def harmonic_changed(*args):
-    update_harmonics(harmonics_slider.get())
+def harmonic_changed(
+        *args,
+        harmonics_var: tk.StringVar,
+        harmonics_slider: tk.Scale
+):
+    update_harmonics(
+        harmonics_slider.get(),
+        harmonics_var
+    )
 
-# Create the GUI
-root = tk.Tk()
-# root.geometry("800x600") # Set the size of the window
-root.title('4Cs4Vs Test Bench GUI')
-# Create a frame for the GUI
-frame = tk.Frame(root)
-frame.pack()
+def signal_status_changed(
+        *args,
+        radio_var: tk.StringVar,
+        id: str
+):
+    # Create a packet with the command and the signal status
+    # 0x53 is the ASCII code for 'S' and 0x4F is the ASCII code for 'O'
+    packet = bytes([0x53, 0x4F]) 
+    match id.casefold():
+        case "u1":
+            packet += bytes([0x55, 0x01])  # 0x55 is the ASCII code for 'U'
+        case "u2":
+            packet += bytes([0x55, 0x02])  # 0x55 is the ASCII code for 'U'
+        case "u3":
+            packet += bytes([0x55, 0x03])  # 0x55 is the ASCII code for 'U'
+        case "un":
+            packet += bytes([0x55, 0x04])  # 0x55 is the ASCII code for 'U'
+        case "i1":
+            packet += bytes([0x49, 0x01])  # 0x49 is the ASCII code for 'I'
+        case "i2":
+            packet += bytes([0x49, 0x02])  # 0x49 is the ASCII code for 'I'
+        case "i3":
+            packet += bytes([0x49, 0x03])  # 0x49 is the ASCII code for 'I'
+        case "in":
+            packet += bytes([0x49, 0x04])  # 0x49 is the ASCII code for 'I'
 
-amplitude_label = tk.Label(frame, text="Amplitude (V):")
-amplitude_label.grid(row=0, column=0)
+    if radio_var.get() == "On":
+        packet += bytes([0x01])
+    elif radio_var.get() == "Off":
+        packet += bytes([0x00])
 
-amplitude_slider = tk.Scale(frame,
-                            from_=0,
-                            to=10,
-                            resolution=0.01,
-                            orient=tk.HORIZONTAL,
-                            length=300, 
-                            sliderlength=20,
-                            tickinterval=1,
-                            cursor="hand2",
-                            command=update_amplitude)
-amplitude_slider.grid(row=1, column=0)
-amplitude_slider.set(1)  # Set the initial value of the slider
+    print(packet.hex(' '))        
+                 
+def amplitude_slider(frame: tk.Frame):
+    
+    amplitude_label = tk.Label(frame, text="Amplitude (V):")
+    amplitude_label.grid(row=0, column=0)
+    amplitude_label.config(font=("Arial", 12, "bold"))
 
-rms_label = tk.Label(frame, text="RMS: 0.000 V")
-rms_label.grid(row=1, column=1)
+    rms_label = tk.Label(frame, text="RMS: 0.000 V")
+    rms_label.grid(row=1, column=1, sticky="W", padx=10, pady=10)
+    rms_label.config(font=("Arial", 9, "bold"))
 
-frequency_label = tk.Label(frame, text="Frequency (Hz):")
-frequency_label.grid(row=2, column=0)
+    amplitude_slider = tk.Scale(
+                                frame,
+                                from_=0,
+                                to=10,
+                                resolution=0.01,
+                                orient=tk.HORIZONTAL,
+                                length=300, 
+                                sliderlength=20,
+                                tickinterval=1,
+                                cursor="hand2",
+                                command=lambda value: update_amplitude(
+                                    value, 
+                                    rms_label
+                                )
+    )
+    amplitude_slider.grid(row=1, column=0)
+    amplitude_slider.set(1)  # Set the initial value of the slider
 
-frequency_slider = tk.Scale(frame,
-                            from_=0,
-                            to=100,
-                            orient=tk.HORIZONTAL,
-                            length=300,
-                            sliderlength=20,
-                            tickinterval=10,
-                            cursor="hand2",
-                            command=update_frequency)
-frequency_slider.grid(row=3, column=0)
-frequency_slider.set(50)  # Set the initial value of the slider
+def frequency_slider(frame: tk.Frame):
 
-harmonics_label = tk.Label(frame, text="Number of Harmonics:")
-harmonics_label.grid(row=4, column=0)
+    frequency_label = tk.Label(frame, text="Frequency (Hz):")
+    frequency_label.grid(row=2, column=0)
+    frequency_label.config(font=("Arial", 12, "bold"))
 
-harmonics_slider = tk.Scale(frame,
-                            from_=0,
-                            to=50,
-                            orient=tk.HORIZONTAL,
-                            length=300,
-                            sliderlength=20,
-                            tickinterval=10,
-                            cursor="hand2",
-                            command=update_harmonics)
-harmonics_slider.grid(row=5, column=0)
-harmonics_slider.set(0)  # Set the initial value of the slider
+    frequency_slider = tk.Scale(frame,
+                                from_=0,
+                                to=100,
+                                orient=tk.HORIZONTAL,
+                                length=300,
+                                sliderlength=20,
+                                tickinterval=10,
+                                cursor="hand2",
+                                command=update_frequency)
+    frequency_slider.grid(row=3, column=0)
+    frequency_slider.set(50)  # Set the initial value of the slider
 
-harmonics_parity_label = tk.Label(frame, text="Harmonics Parity:")
-harmonics_parity_label.grid(row=4, column=1)
+def harmonics_controls(frame: tk.Frame):
 
-# Create a Tkinter variable
-harmonics_var = tk.StringVar(frame)
-harmonics_var.trace_add('write', harmonic_changed)
-# Define the options
-harmonics_options = {"Even", "Odd", "Both"}
-# Set the default option
-harmonics_var.set("Even")
-# Create the dropdown menu
-harmonics_menu = tk.OptionMenu(frame, harmonics_var, *harmonics_options)
-harmonics_menu.grid(row=5, column=1)
+    harmonics_label = tk.Label(frame, text="Number of Harmonics:")
+    harmonics_label.grid(row=4, column=0)
+    harmonics_label.config(font=("Arial", 12, "bold"))
 
+    # Create a Tkinter variable
+    harmonics_var = tk.StringVar(frame)
+    # Define the options
+    harmonics_options = {"Even", "Odd", "Both"}
+    # Set the default option
+    harmonics_var.set("Even")
 
-# Create a Tkinter variable
-radio_var_u1 = tk.StringVar()
+    harmonics_slider = tk.Scale(
+                                frame,
+                                from_=0,
+                                to=50,
+                                orient=tk.HORIZONTAL,
+                                length=300,
+                                sliderlength=20,
+                                tickinterval=10,
+                                cursor="hand2",
+                                command=lambda value: update_harmonics(
+                                    value,
+                                    harmonics_var
+                                )
+    )
+    harmonics_slider.grid(row=5, column=0)
+    harmonics_slider.set(0)  # Set the initial value of the slider
 
-# Create the "On" radio button
-on_button_u1 = tk.Radiobutton(frame, text="On", variable=radio_var_u1, value="On")
-on_button_u1.grid(row=0, column=3, padx=5, pady=5)
+    parity_label = tk.Label(frame, text="Harmonics\nParity:")
+    parity_label.grid(row=4, column=1, sticky="SW", padx=10)
+    parity_label.config(font=("Arial", 11, "bold"))
+    
+    harmonics_var.trace_add('write', lambda *args: harmonic_changed(
+        *args,
+        harmonics_var=harmonics_var,
+        harmonics_slider=harmonics_slider
+    ))
+    # Create the dropdown menu
+    option_menu = tk.OptionMenu(frame, harmonics_var, *harmonics_options)
+    option_menu.grid(row=5, column=1, sticky="NW", padx=10)
 
-# Create the "Off" radio button
-off_button_u1 = tk.Radiobutton(frame, text="Off", variable=radio_var_u1, value="Off")
-off_button_u1.grid(row=0, column=4, padx=5, pady=5)
+def signal_on_off(
+          frame: tk.Frame,
+          text: str,
+          row: int,
+          column: int,
+          id: str
 
-# Set the default state
-radio_var_u1.set("On")
+):
+     
+    signal_label = tk.Label(frame, text=text)
+    signal_label.grid(row=row, column=3, sticky="W")
+    signal_label.config(font=("Arial", 9))
+    frame.rowconfigure(row, minsize=50)
 
+    # Create a Tkinter variable
+    radio_var = tk.StringVar()
+    # Trace the variable
+    radio_var.trace_add('write', lambda *args: signal_status_changed(
+        *args,
+        radio_var=radio_var,
+        id = id
+    ))
 
+    # Create the "On" radio button
+    on_button = tk.Radiobutton(
+        frame, 
+        text="On", 
+        variable=radio_var, 
+        value="On"
+    )
+    on_button.grid(row=row, column=4)
 
-# Create a Tkinter variable
-radio_var_u2 = tk.StringVar()
+    # Create the "Off" radio button
+    off_button = tk.Radiobutton(
+        frame, 
+        text="Off", 
+        variable=radio_var, 
+        value="Off"
+    )
+    off_button.grid(row=row, column=5, sticky="W")
 
-# Create the "On" radio button
-on_button_u2 = tk.Radiobutton(frame, text="On", variable=radio_var_u2, value="On")
-on_button_u2.grid(row=1, column=3, padx=5, pady=5)
+    frame.columnconfigure(5, minsize=70)
 
-# Create the "Off" radio button
-off_button_u2 = tk.Radiobutton(frame, text="Off", variable=radio_var_u2, value="Off")
-off_button_u2.grid(row=1, column=4, padx=5, pady=5)
+    # Set the default state
+    radio_var.set("On")
 
-# Set the default state
-radio_var_u2.set("On")
+def main():
 
+    root = tk.Tk()
+    
+    root.title('4Cs4Vs Test Bench GUI')
 
+    # Create a frame for the GUI
+    frame = tk.Frame(root)
+    frame.pack()
 
-# Create a Tkinter variable
-radio_var_u3 = tk.StringVar()
+    amplitude_slider(frame)
+    frequency_slider(frame)
+    harmonics_controls(frame)
 
-# Create the "On" radio button
-on_button_u3 = tk.Radiobutton(frame, text="On", variable=radio_var_u3, value="On")
-on_button_u3.grid(row=2, column=3, padx=5, pady=5)
+    frame.columnconfigure(1, minsize=180)
 
-# Create the "Off" radio button
-off_button_u3 = tk.Radiobutton(frame, text="Off", variable=radio_var_u3, value="Off")
-off_button_u3.grid(row=2, column=4, padx=5, pady=5)
+    output_label = tk.Label(frame, text="Control output signals:")
+    output_label.grid(row=0, column=3)
+    output_label.config(font=("Arial", 12, "bold"))
 
-# Set the default state
-radio_var_u3.set("On")
+    signal_on_off(frame, "First phase voltage (u1)", 1, 3, "u1")
+    signal_on_off(frame, "Second phase voltage (u2)", 2, 3, "u2")
+    signal_on_off(frame, "Third phase voltage (u3)", 3, 3, "u3")
+    signal_on_off(frame, "Neutral voltage (uN)", 4, 3, "uN")
+    signal_on_off(frame, "First phase current (i1)", 5, 3, "i1")
+    signal_on_off(frame, "Second phase current (i2)", 6, 3, "i2")
+    signal_on_off(frame, "Third phase current (i3)", 7, 3, "i3")
+    signal_on_off(frame, "Neutral current (iN)", 8, 3, "iN")
 
+    root.mainloop()
 
-
-# Create a Tkinter variable
-radio_var_uN = tk.StringVar()
-
-# Create the "On" radio button
-on_button_uN = tk.Radiobutton(frame, text="On", variable=radio_var_uN, value="On")
-on_button_uN.grid(row=3, column=3, padx=5, pady=5)
-
-# Create the "Off" radio button
-off_button_uN = tk.Radiobutton(frame, text="Off", variable=radio_var_uN, value="Off")
-off_button_uN.grid(row=3, column=4, padx=5, pady=5)
-
-# Set the default state
-radio_var_uN.set("On")
-
-
-
-# Create a Tkinter variable
-radio_var_i1 = tk.StringVar()
-
-# Create the "On" radio button
-on_button_i1 = tk.Radiobutton(frame, text="On", variable=radio_var_i1, value="On")
-on_button_i1.grid(row=4, column=3, padx=5, pady=5)
-
-# Create the "Off" radio button
-off_button_i1 = tk.Radiobutton(frame, text="Off", variable=radio_var_i1, value="Off")
-off_button_i1.grid(row=4, column=4, padx=5, pady=5)
-
-# Set the default state
-radio_var_i1.set("On")
-
-
-
-# Create a Tkinter variable
-radio_var_i2 = tk.StringVar()
-
-# Create the "On" radio button
-on_button_i2 = tk.Radiobutton(frame, text="On", variable=radio_var_i2, value="On")
-on_button_i2.grid(row=5, column=3, padx=5, pady=5)
-
-# Create the "Off" radio button
-off_button_i2 = tk.Radiobutton(frame, text="Off", variable=radio_var_i2, value="Off")
-off_button_i2.grid(row=5, column=4, padx=5, pady=5)
-
-# Set the default state
-radio_var_i2.set("On")
-
-
-
-# Create a Tkinter variable
-radio_var_i3 = tk.StringVar()
-
-# Create the "On" radio button
-on_button_i3 = tk.Radiobutton(frame, text="On", variable=radio_var_i3, value="On")
-on_button_i3.grid(row=6, column=3, padx=5, pady=5)
-
-# Create the "Off" radio button
-off_button_i3 = tk.Radiobutton(frame, text="Off", variable=radio_var_i3, value="Off")
-off_button_i3.grid(row=6, column=4, padx=5, pady=5)
-
-# Set the default state
-radio_var_i3.set("On")
-
-
-
-# Create a Tkinter variable
-radio_var_iN = tk.StringVar()
-
-# Create the "On" radio button
-on_button_iN = tk.Radiobutton(frame, text="On", variable=radio_var_iN, value="On")
-on_button_iN.grid(row=7, column=3, padx=5, pady=5)
-
-# Create the "Off" radio button
-off_button_iN = tk.Radiobutton(frame, text="Off", variable=radio_var_iN, value="Off")
-off_button_iN.grid(row=7, column=4, padx=5, pady=5)
-
-# Set the default state
-radio_var_iN.set("On")
-
-# Start the GUI event loop
-root.mainloop()
+main()
