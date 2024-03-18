@@ -1,28 +1,13 @@
 #include <SPI.h> //Įtraukiamas SPI biblioteka
 
-PIN_SPI_SS
-
 const uint16_t L = 65535; // Number of entries in the lookup table
 const float step = 2 * PI / L; // Step size for calculating sine values 
 
-const uint8_t RASYTI_KODA_I_N = 0; //Apibrėžiamas rašymo į tam tikro SAK išėjimo (n) įėjimo registrą komandos kodas  
-const uint8_t RASYTI_KODA_I_VISUS = 8; //Apibrėžiamas rašymo į visų SAK išėjimų įėjimų registrus komandos kodas
-const uint8_t RASYTI_DIAPAZONA_I_N = 6; //Apibrėžiamas tam tikro SAK išėjimo (n) įtampos diapazono nustatymo komandos kodas
 const uint8_t RASYTI_DIAPAZONA_I_VISUS = 14; //Apibrėžiamas visų SAK išėjimų įtampos diapazonų nustatymo komandos kodas
-const uint8_t ATNAUJINTI_N = 1; //Apibrėžiamas tam tikro SAK išėjimo (n) SAK registro atnaujinimo komandos kodas
-const uint8_t ATNAUJINTI_VISUS = 9; //Apibrėžiamas visų SAK išėjimų SAK registrų atnaujinimo komandos kodas
 const uint8_t RASYTI_KODA_I_N_ATNAUJINTI_N = 3; /*Apibrėžiamas rašymo į tam tikro SAK išėjimo (n) įėjimo registrą
                                                   bei šio išėjimo SAK registro atnaujinimo komandos kodas*/
-const uint8_t RASYTI_KODA_I_N_ATNAUJINTI_VISUS = 2; /*Apibrėžiamas rašymo į tam tikro SAK išėjimo (n) įėjimo registrą
-                                                      bei visų išėjimų SAK registrų atnaujinimo komandos kodas*/
-const uint8_t RASYTI_KODA_I_VISUS_ATNAUJINTI_VISUS = 10; /*Apibrėžiamas rašymo į visų SAK išėjimų įėjimų registrus
-                                                          bei visų išėjimų SAK registrų atnaujinimo komandos kodas*/
 
-const uint8_t DIAPAZONAS_0_5   = 0x00; //Diapazono nuo 0V iki 5V nustatymo komandos duomenų dalis
-const uint8_t DIAPAZONAS_0_10  = 0x01; //Diapazono nuo 0V iki 10V nustatymo komandos duomenų dalis
-const uint8_t DIAPAZONAS_5_5   = 0x02; //Diapazono nuo -5V iki 5V nustatymo komandos duomenų dalis
 const uint8_t DIAPAZONAS_10_10 = 0x03; //Diapazono nuo -10V iki 10V nustatymo komandos duomenų dalis
-const uint8_t DIAPAZONAS_2_5_2_5 = 0x04; //Diapazono nuo -2.5V iki 2.5V nustatymo komandos duomenų dalis
 
 const uint8_t DONTCARE = 0; // Nereikšmingo baito apibrėžimas, kuris naudojamas kai sudaromas 32 bitų paketas
 // unsigned long int currentTime = 0;
@@ -41,8 +26,6 @@ float apkrova = 100.0;
 uint16_t u[L]; // Lookup table to store wave values
 uint16_t un[L]; // Lookup table to store wave values
 
-uint8_t currentRange = DIAPAZONAS_0_5; // Current range of the output voltage
-
 void setupParameters() {
   
   parameter_id = Serial.read(); // Read the parameter id from the serial port
@@ -57,10 +40,7 @@ void setupParameters() {
       amplitude = (Serial.read() << 8) | Serial.read(); // Shift the byte by 8 bits
       break;
 
-    case 0x44: // 0x44 is Ascii for 'D'. If the parameter id is 0x44, read the range from the serial port
-      currentRange = Serial.read(); // Read the range from the serial port
-      valdytiSAK(RASYTI_DIAPAZONA_I_VISUS, DONTCARE, currentRange); // Set the range for all SAK outputs
-      break;    
+    case 
     
     default: // If the parameter id is not 0x46 or 0x41, break the switch statement
       break;
@@ -78,12 +58,12 @@ void valdytiSAK(uint8_t komanda, uint8_t adresas, uint16_t duomenys) {
 
    /*Atliekant komandinio baito loginį poslinkį keturiais bitais į kaire
                                                 ir atliekant loginį sumavimą su adreso baitu, sukuriamas paketo antraštės baitas*/
-  SPI.digitalWrite(spi_cs, LOW); /*Pradedamas duomenų perdavimas su SAK'u, nustatant Lusto Pasirinkimo kaiščio
+  digitalWrite(PIN_SPI_SS, LOW); /*Pradedamas duomenų perdavimas su SAK'u, nustatant Lusto Pasirinkimo kaiščio
                                         išėjimo įtampos lygį į žemą*/
-  SPI.SPI_0.transfer((komanda << 4) | adresas); // Antraštės baito siuntimas   
-  SPI.SPI_0.transfer16(duomenys); // Dviejų baitų duomenų siuntimas 
+  SPI.transfer((komanda << 4) | adresas); // Antraštės baito siuntimas   
+  SPI.transfer16(duomenys); // Dviejų baitų duomenų siuntimas 
 
-  SPI.digitalWrite(spi_cs, HIGH); /*Baigiamas duomenų perdavimas su SAK'u, nustatant Lusto Pasirinkimo kaiščio
+  digitalWrite(PIN_SPI_SS, HIGH); /*Baigiamas duomenų perdavimas su SAK'u, nustatant Lusto Pasirinkimo kaiščio
                                         išėjimo įtampos lygį į aukštą*/
 
 }
@@ -94,8 +74,8 @@ void setup() {
   
   SPI.begin(); //Inicializuojama SPI magistralė
   SPI.beginTransaction(SPISettings(30e6, MSBFIRST, SPI_MODE0)); //SPI komunikacijos parametrų nustatymas
-  pinMode(spi_cs, OUTPUT); //Lusto išrinkimo kaištis nustatomas į išvesties režimą
-  valdytiSAK(RASYTI_DIAPAZONA_I_VISUS, DONTCARE, DIAPAZONAS_0_5); //Visų SAK išėjimų diapazonų nustatymo komanda
+  pinMode(PIN_SPI_SS, OUTPUT); //Lusto išrinkimo kaištis nustatomas į išvesties režimą
+  valdytiSAK(RASYTI_DIAPAZONA_I_VISUS, DONTCARE, DIAPAZONAS_10_10); //Visų SAK išėjimų diapazonų nustatymo komanda
 
   setupParameters(); // Call the setup function
 
@@ -107,7 +87,7 @@ void loop() {
       if (Serial.read() == 0x53) setupParameters(); // if the received byte is 0x53, call the setup function
     }
 
-  valdytiSAK(RASYTI_DIAPAZONA_I_VISUS, DONTCARE, currentRange); // Set the range for all SAK outputs
+  valdytiSAK(RASYTI_DIAPAZONA_I_VISUS, DONTCARE, DIAPAZONAS_10_10); // Set the range for all SAK outputs
 
   valdytiSAK(RASYTI_KODA_I_N_ATNAUJINTI_N, 0, u[t1]); 
   valdytiSAK(RASYTI_KODA_I_N_ATNAUJINTI_N, 1, u[t2]); 
