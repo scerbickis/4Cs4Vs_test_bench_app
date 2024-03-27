@@ -1,6 +1,6 @@
 #include <SPI.h> //Įtraukiamas SPI biblioteka
 
-const uint16_t L = 65535; // Number of entries in the lookup table
+const uint16_t L = 1 << 12 - *21; // Number of entries in the lookup table
 const float step = 2 * PI / L; // Step size for calculating sine values 
 
 const uint8_t RASYTI_DIAPAZONA_I_VISUS = 14; //Apibrėžiamas visų SAK išėjimų įtampos diapazonų nustatymo komandos kodas
@@ -12,19 +12,50 @@ const uint8_t DIAPAZONAS_10_10 = 0x03; //Diapazono nuo -10V iki 10V nustatymo ko
 const uint8_t DONTCARE = 0; // Nereikšmingo baito apibrėžimas, kuris naudojamas kai sudaromas 32 bitų paketas
 // unsigned long int currentTime = 0;
 
-uint16_t t1 = 0; // Index for the lookup table
-uint16_t t2 = 43690; // Index for the lookup table
-uint16_t t3 = 21844; // Index for the lookup table
-uint16_t j; // Index for loops
-
 uint8_t parameter_id = 0x46; // Parameter value for the sine wave
 
-uint16_t M = 65000; // Step size for the lookup table
+uint16_t M = 1; // Step size for the lookup table
 uint16_t amplitude = 1; // Amplitude of the sine wave
+uint16_t phase1 = 0;
+uint16_t phase2 = L/3;
+uint16_t phase3 = 2*L/3;
 float apkrova = 100.0;
+uint8_t harmonic_order = 0;
+char harmonic_parity = 'E';
+bool signal_statuses[8] = {true, true, true, true, true, true, true, true};
 
 uint16_t u[L]; // Lookup table to store wave values
-uint16_t un[L]; // Lookup table to store wave values
+uint16_t un[L]; // Lookup table to store wave values 
+
+inline uint8_t evenOrder(uint8_t h) { return 2*h; }
+inline uint8_t oddOrder(uint8_t h) { return 2*h + 1}
+inline uint8_t tripleOrder(uint8_t h) { return 3*(2*h-1); }
+inline uint8_t positiveOrder(uint8_t h) { return 3*h+1; }
+inline uint8_t negativeOrder(uint8_t h) { return 3*h-1; }
+inline uint8_t zeroOrder(uint8_t h) { return 3*h; }
+inline uint8_t nonTripleOrder(uint8_t h) { return pow(-1,h)*(6*h*pow(-1,h)+3*pow(-1,h)-1)/2; }
+
+uint16_t calculateSineTable(){
+
+  uint8_t (*orderFunction)(uint8_t);
+
+  if (harmonic_parity == 'E') orderFunction = evenOrder;
+  else if (harmonic_parity == 'O') orderFunction = oddOrder;
+  else if (harmonic_parity == 'T') orderFunction = tripleOrder;
+  else if (harmonic_parity == 'P') orderFunction = positiveOrder;
+  else if (harmonic_parity == 'N') orderFunction = negativeOrder;
+  else if (harmonic_parity == 'Z') orderFunction = zeroOrder;
+  else orderFunction = nonTripleOrder;
+
+  for (uint8_t h = 1; h <= harmonic_number; orderFunction(h)){
+      
+      for (uint16_t j = 0; j < L; j++) {
+        // Scale sine values to the range of 0-65535
+        u[j] += (uint16_t)(amplitude/h * sin(h * j * step));
+      }
+    }
+}
+
 
 void setupParameters() {
   
@@ -40,13 +71,22 @@ void setupParameters() {
       amplitude = (Serial.read() << 8) | Serial.read(); // Shift the byte by 8 bits
       break;
 
-    case 
-    
+    case 0x48: // 0x48 is Ascii for 'H'. If the parameter id is 0x48, read the harmonic value from the serial port
+      harmonic_parity = Serial.read(); // Read the harmonic parity from the serial port
+      harmonic_order = Serial.read(); // Read the harmonic number from the serial port
+      break;
+
+    case 0x4F: // 0x4F is Ascii for 'O'.
+      signal_statuses[Serial.read()] = Serial.read(); // Read the signal status from the serial port
+      break;
+
+    case   
+
     default: // If the parameter id is not 0x46 or 0x41, break the switch statement
       break;
   }
 
-  for (j = 0; j < L; j++) {
+  for (uint16_t j = 0; j < L; j++) {
     // Scale sine values to the range of 0-65535
     u[j] = (uint16_t)(amplitude * (sin(j * step) + 1)/2);
     un[j] = (uint16_t)(amplitude * (sin(j * step) + sin(j * step + 2*PI/3) + sin(j * step + 4*PI/3))/2);
@@ -83,23 +123,24 @@ void setup() {
 
 void loop() {
 
-  if (Serial.available() > 0) { // if there is data available on the serial port
+  for (uint16_t t = 0; t < L; t += M){
+
+    if (Serial.available() > 0) { // if there is data available on the serial port
       if (Serial.read() == 0x53) setupParameters(); // if the received byte is 0x53, call the setup function
     }
 
   valdytiSAK(RASYTI_DIAPAZONA_I_VISUS, DONTCARE, DIAPAZONAS_10_10); // Set the range for all SAK outputs
 
-  valdytiSAK(RASYTI_KODA_I_N_ATNAUJINTI_N, 0, u[t1]); 
-  valdytiSAK(RASYTI_KODA_I_N_ATNAUJINTI_N, 1, u[t2]); 
-  valdytiSAK(RASYTI_KODA_I_N_ATNAUJINTI_N, 2, u[t3]); 
-  valdytiSAK(RASYTI_KODA_I_N_ATNAUJINTI_N, 3, un[t1]); 
+  if (signal_statuses[0]) valdytiSAK(RASYTI_KODA_I_N_ATNAUJINTI_N, 0, u[t]);
+  if (signal_statuses[1]) valdytiSAK(RASYTI_KODA_I_N_ATNAUJINTI_N, 1, u[t + 43690]);
+  if (signal_statuses[2]) valdytiSAK(RASYTI_KODA_I_N_ATNAUJINTI_N, 2, u[t + 21844]);
+  if (signal_statuses[3]) valdytiSAK(RASYTI_KODA_I_N_ATNAUJINTI_N, 3, un[t]);
 
-  valdytiSAK(RASYTI_KODA_I_N_ATNAUJINTI_N, 4, i[t1]);
-  valdytiSAK(RASYTI_KODA_I_N_ATNAUJINTI_N, 5, i[t2]); 
-  valdytiSAK(RASYTI_KODA_I_N_ATNAUJINTI_N, 6, i[t3]); 
-  valdytiSAK(RASYTI_KODA_I_N_ATNAUJINTI_N, 7, in[t1]); 
+  if (signal_statuses[4]) valdytiSAK(RASYTI_KODA_I_N_ATNAUJINTI_N, 4, u[t]);
+  if (signal_statuses[5]) valdytiSAK(RASYTI_KODA_I_N_ATNAUJINTI_N, 5, u[t + 43690]);
+  if (signal_statuses[6]) valdytiSAK(RASYTI_KODA_I_N_ATNAUJINTI_N, 6, u[t + 21844]);
+  if (signal_statuses[7]) valdytiSAK(RASYTI_KODA_I_N_ATNAUJINTI_N, 7, un[t]);
 
-  t1 = t1 + M; // Increment the index for the lookup table
-  t2 = t2 + M; // Increment the index for the lookup table
-  t3 = t3 + M; // Increment the index for the lookup table
+  }
+  
 }

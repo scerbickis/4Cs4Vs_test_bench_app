@@ -1,10 +1,8 @@
 import tkinter as tk
 import serial
 import logging
+from serial.tools import list_ports
 from math import sqrt
-
-# Create a serial connection to the Arduino Portenta H7
-# ser = serial.Serial('COM7', 115200)  # Replace 'COM1' with the appropriate serial port
 
 logging.basicConfig(level=logging.DEBUG, style='{', format='{levelname}: {message}')
 
@@ -13,17 +11,51 @@ def round_half_up(float_number: float) -> int:
     if float_number >= 0: return int(float_number + 0.5)
     else: return int(float_number - 0.5)
 
-# def check_response(request: bytes) -> bool:
+def check_response(request: bytes) -> bool:
 
-#     response = ser.read(len(request))  # Read the response from the Arduino
-#     if response == request: return True
-#     else: logging.error(f"Error: received {response.hex('|')} instead of {request.hex('|')}")
-     
-                 
+    response = ser.read(len(request))  # Read the response from the Arduino
+    if response == request: return True
+    else: logging.error(f"Error: received {response.hex('|')} instead of {request.hex('|')}")
+
+def select_comport(comport):
+
+    logging.debug(f"Selected Serial port: {comport}")
+    global selected_comport
+    selected_comport = comport
+
+def connect():
+
+    if "selected_comport" in globals():
+        try:
+            global ser
+            ser = serial.Serial(selected_comport)
+            logging.info(f"Connected to {selected_comport}")
+        except serial.SerialException as e:
+            logging.error(f"Could not connect to {selected_comport}: {e}")
+    else:
+        logging.error("No COM port selected")
+
+def menu(root: tk.Tk):
+
+    menubar = tk.Menu(root)
+    comport_menu = tk.Menu(menubar, tearoff=0)
+    comports = list_ports.comports()
+
+    for comport in comports:
+        comport_menu.add_command(
+            label=comport.device, 
+            command=lambda c=comport.device: select_comport(c)
+        )
+
+    menubar.add_command(label="Connect", command=connect)
+    menubar.add_cascade(label="Serial Port", menu=comport_menu)
+
+    root.config(menu=menubar)
+
 def amplitude_controls(
-                    frame: tk.Frame,
-                    row: int,
-                    column: int
+    frame: tk.Frame,
+    row: int,
+    column: int
 ):
     
     # Function to send control parameters to the Arduino
@@ -38,13 +70,17 @@ def amplitude_controls(
         packet = bytes([0x53, 0x41])
         packet += amplitude.to_bytes(2)  # Convert the amplitude to a 2-byte array and append it to the packet  
         logging.debug(packet.hex('|'))
-        # ser.write(packet)  # Send the command to the Arduino
-        # check_response(packet)
+        
+        if "ser" in globals():
+            ser.write(packet) # Send the command to the Arduino
+            check_response(packet)
     
     def update_slider(*args):
+
         try:
             amplitude.set(float(amplitude_entry_value.get()))
             update_amplitude(amplitude.get())
+
         except ValueError:
             pass
 
@@ -69,18 +105,19 @@ def amplitude_controls(
     units_label.config(font=("Arial", 9))
     
     amplitude_slider = tk.Scale(
-                                frame,
-                                from_=0,
-                                to=10,
-                                resolution=0.01,
-                                orient=tk.HORIZONTAL,
-                                length=300, 
-                                sliderlength=20,
-                                tickinterval=1,
-                                cursor="hand2",
-                                command=update_amplitude,
-                                variable=amplitude
+        frame,
+        from_=0,
+        to=10,
+        resolution=0.01,
+        orient=tk.HORIZONTAL,
+        length=300, 
+        sliderlength=20,
+        tickinterval=1,
+        cursor="hand2",
+        command=update_amplitude,
+        variable=amplitude
     )
+    
     amplitude_slider.grid(row=row + 1, column=column + 2, sticky="E")
     amplitude_slider.set(1)  # Set the initial value of the slider
 
@@ -103,8 +140,10 @@ def frequency_controls(
         packet = bytes([0x53, 0x46])
         packet += frequency.to_bytes(2)  # Convert the frequency to a 2-byte array and append it to the packet
         logging.debug(packet.hex('|'))
-        # ser.write(packet)  # Send the command to the Arduino
-        # check_response(packet)
+
+        if "ser" in globals():
+            ser.write(packet) # Send the command to the Arduino
+            check_response(packet)
     
     def update_slider(*args):
         try:
@@ -133,16 +172,18 @@ def frequency_controls(
     units_label.grid(row=row + 1, column=column + 1, sticky="W")
     units_label.config(font=("Arial", 9))
 
-    frequency_slider = tk.Scale(frame,
-                                from_=0,
-                                to=100,
-                                orient=tk.HORIZONTAL,
-                                length=300,
-                                sliderlength=20,
-                                tickinterval=10,
-                                cursor="hand2",
-                                command=update_frequency,
-                                variable=frequency)
+    frequency_slider = tk.Scale(
+        frame,
+        from_=0,
+        to=100,
+        orient=tk.HORIZONTAL,
+        length=300,
+        sliderlength=20,
+        tickinterval=10,
+        cursor="hand2",
+        command=update_frequency,
+        variable=frequency
+    )
     frequency_slider.grid(row=row + 1, column=column + 2)
     frequency_slider.set(50)  # Set the initial value of the slider
 
@@ -165,14 +206,24 @@ def harmonics_controls(
             case "Even": packet += bytes([0x45])
             # 0x4F is the ASCII code for 'O'
             case "Odd": packet += bytes([0x4F])
-            # 0x42 is the ASCII code for 'B'
-            case "Both": packet += bytes([0x42]) 
+            # 0x54 is the ASCII code for 'T'
+            case "Triplen": packet += bytes([0x54])
+            # 0x52 is the ASCII code for 'R'
+            case "Non-Triplen Odd": packet += bytes([0x52])
+            # 0x50 is the ASCII code for 'P'
+            case "Positive Sequence": packet += bytes([0x50])
+            # 0x4E is the ASCII code for 'N'
+            case "Negative Sequence": packet += bytes([0x4E])
+            # 0x5A is the ASCII code for 'Z'
+            case "Zero Sequence": packet += bytes([0x5A])
 
         # Convert the harmonics to a 1-byte array and append it to the packet
         packet += harmonics.to_bytes(1)  
         logging.debug(packet.hex('|'))
-        # ser.write(packet)  # Send the command to the Arduino
-        # check_response(packet)
+        
+        if "ser" in globals():
+            ser.write(packet) # Send the command to the Arduino
+            check_response(packet)
     
     def harmonic_changed(*args):
         
@@ -185,21 +236,29 @@ def harmonics_controls(
         except ValueError:
             pass
 
-    harmonics_label = tk.Label(frame, text="Number of Harmonics:")
+    harmonics_label = tk.Label(frame, text="Harmonics Order:")
     harmonics_label.grid(row=row, column=column + 2)
     harmonics_label.config(font=("Arial", 12, "bold"))
 
     # Create a Tkinter variable
     harmonics_var = tk.StringVar(frame)
     # Define the options
-    harmonics_options = {"Even", "Odd", "Both"}
+    harmonics_options = {
+        "Even", 
+        "Odd", 
+        "Triplen",
+        "Non-Triplen Odd",
+        "Positive Sequence",
+        "Negative Sequence",
+        "Zero Sequence"
+    }
     # Set the default option
-    harmonics_var.set("Even")
+    harmonics_var.set("Odd")
 
     harmonic = tk.DoubleVar(value=1) 
 
     harmonic_entry_value = tk.StringVar()
-    harmonic_entry_value.set("0")
+    harmonic_entry_value.set("1")
     harmonic_entry_value.trace_add("write", update_slider)
     amplitude_entry = tk.Entry(
         frame, 
@@ -209,35 +268,100 @@ def harmonics_controls(
     amplitude_entry.grid(row=row + 1, column=column, sticky="E")
 
     harmonics_slider = tk.Scale(
-                                frame,
-                                from_=0,
-                                to=50,
-                                orient=tk.HORIZONTAL,
-                                length=300,
-                                sliderlength=20,
-                                tickinterval=10,
-                                cursor="hand2",
-                                command=update_harmonics,
-                                variable=harmonic
+        frame,
+        from_=0,
+        to=50,
+        orient=tk.HORIZONTAL,
+        length=300,
+        sliderlength=20,
+        tickinterval=10,
+        cursor="hand2",
+        command=update_harmonics,
+        variable=harmonic
     )
     harmonics_slider.grid(row=row + 1, column=column + 2)
-    harmonics_slider.set(0)  # Set the initial value of the slider
+    harmonics_slider.set(1)  # Set the initial value of the slider
 
-    parity_label = tk.Label(frame, text="Harmonics\nParity:")
-    parity_label.grid(row=row, column=column + 3, sticky="SW", padx=10)
-    parity_label.config(font=("Arial", 11, "bold"))
+    type_label = tk.Label(frame, text="Harmonics\nType:")
+    type_label.grid(row=row, column=column + 3, sticky="SW", padx=10)
+    type_label.config(font=("Arial", 11, "bold"))
     
     harmonics_var.trace_add('write', harmonic_changed)
     # Create the dropdown menu
     option_menu = tk.OptionMenu(frame, harmonics_var, *harmonics_options)
     option_menu.grid(row=row + 1, column=column + 3, sticky="NW", padx=10)
 
-def signal_on_off(
-          frame: tk.Frame,
-          text: str,
-          row: int,
-          column: int,
-          id: str
+def phase_controls(
+        frame: tk.Frame,
+        row: int,
+        column: int,
+        text: str,
+        initial_value: int
+):
+    
+    def update_phase(value: str):
+
+        value = int(value)
+        # Create a packet with the command and the phase
+        # 0x53 is the ASCII code for 'S' and 0x50 is the ASCII code for 'P'
+        packet = bytes([0x53, 0x50])
+        packet += value.to_bytes(2)  # Convert the phase to a 2-byte array and append it to the packet  
+        logging.debug(packet.hex('|'))
+        
+        if "ser" in globals():
+            ser.write(packet) # Send the command to the Arduino
+            check_response(packet)
+    
+    def update_slider(*args):
+        try:
+            phase.set(int(phase_entry_value.get()))
+            update_phase(phase.get())
+        except ValueError:
+            pass
+
+    phase_label = tk.Label(frame, text=text)
+    phase_label.grid(row=row, column=column + 2)
+    phase_label.config(font=("Arial", 12, "bold"))
+
+    phase = tk.DoubleVar(value=initial_value) 
+
+    phase_entry_value = tk.StringVar()
+    phase_entry_value.set(f"{initial_value}")
+    phase_entry_value.trace_add("write", update_slider)
+
+    phase_entry = tk.Entry(
+        frame, 
+        textvariable=phase_entry_value, 
+        width=5
+    )
+    phase_entry.grid(row=row + 1, column=column, sticky="E")
+
+    units_label = tk.Label(frame, text="°")
+    units_label.grid(row=row + 1, column=column + 1, sticky="W")
+    units_label.config(font=("Arial", 11))
+
+    phase_slider = tk.Scale(
+        frame,
+        from_=0,
+        to=360,
+        orient=tk.HORIZONTAL,
+        length=300,
+        sliderlength=20,
+        tickinterval=45,
+        cursor="hand2",
+        command=update_phase,
+        variable=phase
+    )
+
+    phase_slider.grid(row=row + 1, column=column + 2)
+    phase_slider.set(initial_value)  # Set the initial value of the slider
+
+def signal_on_off_controls(
+    frame: tk.Frame,
+    text: str,
+    row: int,
+    column: int,
+    id: str
 
 ):
     
@@ -248,21 +372,21 @@ def signal_on_off(
         packet = bytes([0x53, 0x4F]) 
         match id.casefold():
             case "u1":
-                packet += bytes([0x55, 0x01])  # 0x55 is the ASCII code for 'U'
+                packet += bytes([0x00])  
             case "u2":
-                packet += bytes([0x55, 0x02])  # 0x55 is the ASCII code for 'U'
+                packet += bytes([0x01])  
             case "u3":
-                packet += bytes([0x55, 0x03])  # 0x55 is the ASCII code for 'U'
+                packet += bytes([0x02])  
             case "un":
-                packet += bytes([0x55, 0x04])  # 0x55 is the ASCII code for 'U'
+                packet += bytes([0x03])  
             case "i1":
-                packet += bytes([0x49, 0x01])  # 0x49 is the ASCII code for 'I'
+                packet += bytes([0x04])  
             case "i2":
-                packet += bytes([0x49, 0x02])  # 0x49 is the ASCII code for 'I'
+                packet += bytes([0x05])  
             case "i3":
-                packet += bytes([0x49, 0x03])  # 0x49 is the ASCII code for 'I'
+                packet += bytes([0x06])  
             case "in":
-                packet += bytes([0x49, 0x04])  # 0x49 is the ASCII code for 'I'
+                packet += bytes([0x07])  
 
         if radio_var.get() == "On":
             packet += bytes([0x01])
@@ -270,8 +394,10 @@ def signal_on_off(
             packet += bytes([0x00])
 
         logging.debug(packet.hex('|'))  
-        # ser.write(packet)  # Send the command to the Arduino
-        # check_response(packet) 
+        
+        if "ser" in globals():
+            ser.write(packet)
+            check_response(packet)
      
     signal_label = tk.Label(frame, text=text)
     signal_label.grid(row=row, column=column, sticky="W")
@@ -311,6 +437,8 @@ def main():
     
     root.title('4Cs4Vs Test Bench GUI')
 
+    menu(root)
+
     # Create a frame for the GUI
     frame = tk.Frame(root)
     frame.pack()
@@ -320,9 +448,33 @@ def main():
     frame.columnconfigure(2, minsize=180)
     frame.columnconfigure(5, minsize=70)
 
-    amplitude_controls(frame, 0, 0)
-    frequency_controls(frame, 2, 0)
-    harmonics_controls(frame, 4, 0)
+    amplitude_controls(frame, row=0, column=0)
+    frequency_controls(frame, row=2, column=0)
+    harmonics_controls(frame, row=4, column=0)
+    
+    phase_controls(
+        frame=frame,
+        row=6,
+        column=0,
+        text="First Phase Angle (°):",
+        initial_value=0
+    )
+
+    phase_controls(
+        frame=frame,
+        row=8,
+        column=0,
+        text="Second Phase Angle (°):",
+        initial_value=120
+    )
+
+    phase_controls(
+        frame=frame,
+        row=10,
+        column=0,
+        text="Third Phase Angle (°):",
+        initial_value=240
+    )
 
     control_signals_start_row = 1
     control_signals_start_column = 6
@@ -331,7 +483,7 @@ def main():
     output_label.grid(row=0, column=6)
     output_label.config(font=("Arial", 12, "bold"))
 
-    signal_on_off(
+    signal_on_off_controls(
         frame, 
         "First phase voltage (u1)", 
         control_signals_start_row, 
@@ -339,7 +491,7 @@ def main():
         "u1"
     )
 
-    signal_on_off(
+    signal_on_off_controls(
         frame, 
         "Second phase voltage (u2)", 
         control_signals_start_row + 1, 
@@ -347,7 +499,7 @@ def main():
         "u2"
     )
 
-    signal_on_off(
+    signal_on_off_controls(
         frame, 
         "Third phase voltage (u3)", 
         control_signals_start_row + 2, 
@@ -355,7 +507,7 @@ def main():
         "u3"
     )
 
-    signal_on_off(
+    signal_on_off_controls(
         frame, 
         "Neutral voltage (uN)", 
         control_signals_start_row + 3, 
@@ -363,7 +515,7 @@ def main():
         "uN"
     )
 
-    signal_on_off(
+    signal_on_off_controls(
         frame, 
         "First phase current (i1)", 
         control_signals_start_row + 4, 
@@ -371,7 +523,7 @@ def main():
         "i1"
     )
 
-    signal_on_off(
+    signal_on_off_controls(
         frame, 
         "Second phase current (i2)", 
         control_signals_start_row + 5, 
@@ -379,7 +531,7 @@ def main():
         "i2"
     )
 
-    signal_on_off(
+    signal_on_off_controls(
         frame, 
         "Third phase current (i3)", 
         control_signals_start_row + 6, 
@@ -387,7 +539,7 @@ def main():
         "i3"
     )
 
-    signal_on_off(
+    signal_on_off_controls(
         frame, 
         "Neutral current (iN)", 
         control_signals_start_row + 7, 
