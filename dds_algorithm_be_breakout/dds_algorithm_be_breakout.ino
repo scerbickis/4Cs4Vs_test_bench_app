@@ -16,9 +16,13 @@ uint8_t parameter_id = 0x46; // Parameter value for the sine wave
 
 uint16_t M = 1; // Step size for the lookup table
 uint16_t amplitude = 1; // Amplitude of the sine wave
-uint16_t phase1 = 0;
-uint16_t phase2 = L/3;
-uint16_t phase3 = 2*L/3;
+
+float phaseFactor1 = 0.0;
+float phaseFactor2 = 2.0 / 3.0;
+float phaseFactor3 = 1.0 / 3.0;
+uint16_t phase1 = (uint16_t) L * phaseFactor1;
+uint16_t phase2 = (uint16_t) L * phaseFactor2;
+uint16_t phase3 = (uint16_t) L * phaseFactor3;
 float apkrova = 100.0;
 uint8_t harmonic_order = 0;
 char harmonic_parity = 'E';
@@ -80,7 +84,12 @@ void setupParameters() {
       signal_statuses[Serial.read()] = Serial.read(); // Read the signal status from the serial port
       break;
 
-    case   
+    case 0x50: // 0x50 is Ascii for 'P'.
+      apkrova = (Serial.read() << 8) | Serial.read(); // Read the load value from the serial port
+      break;
+
+    case 0x52:
+      break;  
 
     default: // If the parameter id is not 0x46 or 0x41, break the switch statement
       break;
