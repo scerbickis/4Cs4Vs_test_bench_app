@@ -13,13 +13,11 @@ uint8_t phase_id = 1; // Phase id
 
 uint16_t amplitude[3] = {1, 1, 1}; // Amplitude of the each phase
 uint16_t frequency[3] = {50, 50, 50}; // Frequency of the each phase
-float phaseFactor[3] = {0.0, 2.0 / 3.0, 1.0 / 3.0}; // Phase factor of the each phase
+// float phaseFactor[3] = {0.0, 2.0 / 3.0, 1.0 / 3.0}; // Phase factor of the each phase
+uint16_t phase[3] = {0, (uint16_t) 2*L/3, (uint16_t) L/3}; // Phase of the each phase
 uint8_t harmonicOrder[3] = {1, 1, 1}; // Harmonic order of the each phase
 char harmonicParity[3] = {'E', 'E', 'E'}; // Harmonic parity of the each phase
 
-// uint16_t phase1 = (uint16_t) L * phaseFactor1;
-// uint16_t phase2 = (uint16_t) L * phaseFactor2;
-// uint16_t phase3 = (uint16_t) L * phaseFactor3;
 float apkrova = 100.0;
 bool signal_statuses[8] = {true, true, true, true, true, true, true, true};
 
@@ -33,7 +31,7 @@ inline uint8_t negativeOrder(uint8_t h) { return 3*h-1; }
 inline uint8_t zeroOrder(uint8_t h) { return 3*h; }
 inline uint8_t nonTripleOrder(uint8_t h) { return pow(-1,h)*(6*h*pow(-1,h)+3*pow(-1,h)-1)/2; }
 
-uint16_t calculateSineTable(){
+void calculateSineTable(){
 
   uint8_t (*orderFunction)(uint8_t);
   if (harmonicParity[phase_id - 1] == 'E') orderFunction = evenOrder;
@@ -93,11 +91,7 @@ void setupParameters() {
   }
   
   calculateSineTable(); // Calculate the sine table
-  // for (uint16_t j = 0; j < L; j++) {
-  //   // Scale sine values to the range of 0-65535
-  //   u[j] = (uint16_t)(amplitude * (sin(j * step) + 1)/2);
-  //   un[j] = (uint16_t)(amplitude * (sin(j * step) + sin(j * step + 2*PI/3) + sin(j * step + 4*PI/3))/2);
-  // }
+
 }
 
 void valdytiSAK(uint8_t komanda, uint8_t adresas, uint16_t duomenys) {
@@ -135,28 +129,30 @@ void loop() {
       if (Serial.read() == 0x53) setupParameters(); // if the received byte is 0x53, call the setup function
     }
 
+    uint16_t phase1 = (uint16_t) L * phaseFactor[0];
     uint16_t u1 = (uint16_t) (amplitude[0] * (sineTable[t] + 1)/2);
     signal_statuses[0] ? valdytiSAK(WRITE_N_UPDATE_N, 0, u1) : valdytiSAK(WRITE_N_UPDATE_N, 0, 32767);
-    if (signal_statuses[0]) valdytiSAK(WRITE_N_UPDATE_N, 0, u1);
 
     uint16_t u2 = (uint16_t) (amplitude[1] * (sineTable[t] + 1)/2);
-    if (signal_statuses[1]) valdytiSAK(WRITE_N_UPDATE_N, 1, u2);
+    signal_statuses[1] ? valdytiSAK(WRITE_N_UPDATE_N, 1, u2) : valdytiSAK(WRITE_N_UPDATE_N, 1, 32767);
 
     uint16_t u3 = (uint16_t) (amplitude[2] * (sineTable[t] + 1)/2);
-    if (signal_statuses[2]) valdytiSAK(WRITE_N_UPDATE_N, 2, u3);
+    signal_statuses[2] ? valdytiSAK(WRITE_N_UPDATE_N, 2, u3) : valdytiSAK(WRITE_N_UPDATE_N, 2, 32767);
 
     uint16_t uN = u1 + u2 + u3 - (amplitude[0] + amplitude[1] + amplitude[2])/3;
-    if (signal_statuses[3]) valdytiSAK(WRITE_N_UPDATE_N, 3, uN);
+    signal_statuses[3] ? valdytiSAK(WRITE_N_UPDATE_N, 3, uN) : valdytiSAK(WRITE_N_UPDATE_N, 3, 32767);
 
     uint16_t i1 = (uint16_t) (amplitude[0] * (sineTable[t] + 1)/2);
-    uint16_t i2 = (uint16_t) (amplitude[1] * (sineTable[t] + 1)/2);
-    uint16_t i3 = (uint16_t) (amplitude[2] * (sineTable[t] + 1)/2);
-    uint16_t iN = i1 + i2 + i3 - (amplitude[0] + amplitude[1] + amplitude[2])/3;
+    signal_statuses[4] ? valdytiSAK(WRITE_N_UPDATE_N, 4, i1) : valdytiSAK(WRITE_N_UPDATE_N, 4, 32767);
 
-    if (signal_statuses[4]) valdytiSAK(WRITE_N_UPDATE_N, 4, u[t]);
-    if (signal_statuses[5]) valdytiSAK(WRITE_N_UPDATE_N, 5, u[t + 43690]);
-    if (signal_statuses[6]) valdytiSAK(WRITE_N_UPDATE_N, 6, u[t + 21844]);
-    if (signal_statuses[7]) valdytiSAK(WRITE_N_UPDATE_N, 7, un[t]);
+    uint16_t i2 = (uint16_t) (amplitude[1] * (sineTable[t] + 1)/2);
+    signal_statuses[5] ? valdytiSAK(WRITE_N_UPDATE_N, 5, i2) : valdytiSAK(WRITE_N_UPDATE_N, 5, 32767);
+
+    uint16_t i3 = (uint16_t) (amplitude[2] * (sineTable[t] + 1)/2);
+    signal_statuses[6] ? valdytiSAK(WRITE_N_UPDATE_N, 6, i3) : valdytiSAK(WRITE_N_UPDATE_N, 6, 32767);
+
+    uint16_t iN = i1 + i2 + i3 - (amplitude[0] + amplitude[1] + amplitude[2])/3;
+    signal_statuses[7] ? valdytiSAK(WRITE_N_UPDATE_N, 7, iN) : valdytiSAK(WRITE_N_UPDATE_N, 7, 32767);
 
   }
   
