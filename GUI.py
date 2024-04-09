@@ -1,6 +1,7 @@
 import tkinter as tk
 import serial
 import logging
+import struct
 from serial.tools import list_ports
 from math import sqrt
 
@@ -236,6 +237,30 @@ def update_frequency(value, clear_entry = True):
         case 2: frequency2 = int(value)
         case 3: frequency3 = int(value)
 
+def update_phase(value: str, clear_entry = True):
+
+    global phase1, phase2, phase3
+
+    if clear_entry: phase_entry_value.set("")
+
+    phase_factor = int(value)/360
+    #
+    # Create a packet with the command and the phase factor
+    # 0x53 is the ASCII code for 'S' and 0x50 is the ASCII code for 'P'
+    packet = bytes([0x53, 0x50, phase_id])
+    packet += struct.pack('>f', phase_factor)  # Convert the phase to a 4-byte array and append it to the packet
+    # packet += value.to_bytes(2)  # Convert the phase to a 2-byte array and append it to the packet  
+    logging.debug(packet.hex('|'))
+    
+    if "ser" in globals():
+        ser.write(packet) # Send the command to the Arduino
+        check_response(packet)
+    
+    match phase_id:
+        case 1: phase1 = int(value)
+        case 2: phase2 = int(value)
+        case 3: phase3 = int(value)
+
 def update_harmonics(value, clear_entry = True):
 
     global harmonics1, harmonics2, harmonics3
@@ -290,28 +315,7 @@ def harmonic_changed(*args):
         
     update_harmonics(harmonics_slider.get())
 
-def update_phase(value: str, clear_entry = True):
 
-    global phase1, phase2, phase3
-
-    if clear_entry: phase_entry_value.set("")
-
-    phase_factor = int(value)/360
-    #
-    # Create a packet with the command and the phase factor
-    # 0x53 is the ASCII code for 'S' and 0x50 is the ASCII code for 'P'
-    packet = bytes([0x53, 0x50, phase_id])
-    # packet += value.to_bytes(2)  # Convert the phase to a 2-byte array and append it to the packet  
-    logging.debug(packet.hex('|'))
-    
-    if "ser" in globals():
-        ser.write(packet) # Send the command to the Arduino
-        check_response(packet)
-    
-    match phase_id:
-        case 1: phase1 = int(value)
-        case 2: phase2 = int(value)
-        case 3: phase3 = int(value)
 
 def signal_on_off_controller(
     text: str,
@@ -325,30 +329,29 @@ def signal_on_off_controller(
 
         # Create a packet with the command and the signal status
         # 0x53 is the ASCII code for 'S' and 0x4F is the ASCII code for 'O'
-        packet = bytes([0x53, 0x4F]) 
+        packet = [0x53, 0x4F, phase_id]
         match id.casefold():
             case "u1":
-                packet += bytes([0x00])  
+                packet.append(0x00)
             case "u2":
-                packet += bytes([0x01])  
+                packet.append(0x01)
             case "u3":
-                packet += bytes([0x02])  
+                packet.append(0x02)
             case "un":
-                packet += bytes([0x03])  
+                packet.append(0x03) 
             case "i1":
-                packet += bytes([0x04])  
+                packet.append(0x04)
             case "i2":
-                packet += bytes([0x05])  
+                packet.append(0x05)
             case "i3":
-                packet += bytes([0x06])  
+                packet.append(0x06)
             case "in":
-                packet += bytes([0x07])  
+                packet.append(0x07)
 
         if radio_var.get() == "On":
-            packet += bytes([0x01])
-        elif radio_var.get() == "Off":
-            packet += bytes([0x00])
+            packet[-1] += 0x10  # Turn the signal on
 
+        packet = bytes(packet)
         logging.debug(packet.hex('|'))  
         
         if "ser" in globals():

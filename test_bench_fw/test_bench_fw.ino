@@ -158,6 +158,7 @@ uint16_t generuotiHarmonikas(uint16_t amplitude, float f, float t, float faze, i
 }
 
 uint16_t gautiApkrovosImpedansa(float apkrova[], float f){
+  
   uint16_t Z; // Impedanso kintamojo apibrėžimas
   // Jeigu talpos vertė lygi nuliui, talpinė varža neapskaičiuojama, taip išvengiant dalybos iš nulio.
   if(apkrova[2]==0) Z = word(sqrt(sq(apkrova[0])+sq(2*PI*f*apkrova[1]))); // Z=sqrt(R^2+XL^2)
