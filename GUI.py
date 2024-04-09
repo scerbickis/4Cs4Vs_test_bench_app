@@ -147,7 +147,7 @@ def parameter_controls(
             logging.error(e)
 
     parameter_label = tk.Label(frame, text=text)
-    parameter_label.grid(row=row, column=column, sticky="W")
+    parameter_label.grid(row=row, column=column, sticky="W", padx=10)
     parameter_label.config(font=("Arial", 10, "bold"))
 
     parameter_var = tk.DoubleVar(value=default_value) 
@@ -480,6 +480,14 @@ def main():
             frequency_entry_value,\
             phase_entry_value,\
             harmonic_entry_value
+    
+    global harmonics_var
+    
+    global  amplitude_slider,\
+            frequency_slider,\
+            phase_slider,\
+            harmonics_slider
+    
     global amplitude1, amplitude2, amplitude3
     global frequency1, frequency2, frequency3
     global phase1, phase2, phase3
@@ -511,7 +519,7 @@ def main():
     )
 
     rms_label = tk.Label(frame, text="RMS: 1.000 V")
-    rms_label.grid(row=0, column=4, sticky="W", padx=10, pady=10)
+    rms_label.grid(row=1, column=4, sticky="W", padx=10, pady=10)
     rms_label.config(font=("Arial", 9, "bold"))
 
     frequency_control_variables = parameter_controls(
@@ -557,7 +565,13 @@ def main():
     frequency_entry_value = frequency_control_variables["entry_value"]
     phase_entry_value = phase_control_variables["entry_value"]
     harmonic_entry_value = harmonic_control_variables["entry_value"]
+
     harmonics_var = harmonic_control_variables["var"]
+
+    amplitude_slider = amplitude_control_variables["slider"]
+    frequency_slider = frequency_control_variables["slider"]
+    phase_slider = phase_control_variables["slider"]
+    harmonics_slider = harmonic_control_variables["slider"]
 
     harmonics_options = [
         "Even", 
@@ -570,7 +584,7 @@ def main():
     ]
 
     type_label = tk.Label(frame, text="Harmonics Type:")
-    type_label.grid(row=4, column=0, sticky="W", padx=10)
+    type_label.grid(row=5, column=0, sticky="W", padx=10)
     type_label.config(font=("Arial", 10, "bold"))
 
     harmonics_var = tk.StringVar(frame)
@@ -578,7 +592,7 @@ def main():
     harmonics_var.trace_add('write', harmonic_changed)
 
     option_menu = tk.OptionMenu(frame, harmonics_var, *harmonics_options)
-    option_menu.grid(row=4, column=1, sticky="W", padx=10)
+    option_menu.grid(row=5, column=3, sticky="W", padx=10)
 
     signal_on_off_controls(
         control_signals_start_row = 0, 
