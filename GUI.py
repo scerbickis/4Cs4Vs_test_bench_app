@@ -15,6 +15,7 @@ def round_half_up(float_number: float) -> int:
 
 def check_response(request: bytes) -> bool:
 
+    return
     response = ser.read(len(request))  # Read the response from the Arduino
     if response == request: return True
     else: logging.error(f"Error: received {response.hex('|')} instead of {request.hex('|')}")
@@ -30,7 +31,7 @@ def connect():
     if "selected_comport" in globals():
         try:
             global ser
-            ser = serial.Serial(selected_comport)
+            ser = serial.Serial(selected_comport, baudrate=115200)
             logging.info(f"Connected to {selected_comport}")
         except serial.SerialException as e:
             logging.error(f"Could not connect to {selected_comport}: {e}")
@@ -56,140 +57,6 @@ def menu(root: tk.Tk):
 
 
 
-def phase_selector(
-    row: int,
-    column: int        
-):
-    
-    global phase_id
-    phase_id = 1
-    
-    def phase_changed(*args):
-
-        global phase_id
-    
-        match phase_var.get():
-
-            case "1st": 
-                
-                phase_id = 1
-                
-                amplitude_slider.set(str(amplitude1))
-                phase_slider.set(str(phase1))
-                frequency_slider.set(str(frequency1))
-                harmonics_slider.set(str(harmonics1["count"]))
-                harmonics_var.set(harmonics1["type"])
-
-            case "2nd": 
-                
-                phase_id = 2
-                
-                amplitude_slider.set(str(amplitude2))
-                phase_slider.set(str(phase2))
-                frequency_slider.set(str(frequency2))
-                harmonics_slider.set(str(harmonics2["count"]))
-                harmonics_var.set(harmonics2["type"])
-
-            case "3rd": 
-                
-                phase_id = 3
-                
-                amplitude_slider.set(str(amplitude3))
-                phase_slider.set(str(240))
-                frequency_slider.set(str(frequency3))
-                harmonics_slider.set(str(harmonics3["count"]))
-                harmonics_var.set(harmonics3["type"])
-        
-        logging.debug(f"Phase: {phase_id}")
-
-    phase_label = tk.Label(frame, text="Selected Phase:")
-    phase_label.grid(row=row, column=column, sticky="W")
-    phase_label.config(font=("Arial", 10, "bold"))
-
-    # Create a Tkinter variable
-    phase_var = tk.StringVar(frame)
-    # Define the options
-    phase_options = [
-        "1st",
-        "2nd",
-        "3rd"
-    ]
-
-    # Set the default option
-    phase_var.set("1st")
-    phase_var.trace_add('write', phase_changed)
-
-    # Create the dropdown menu
-    option_menu = tk.OptionMenu(frame, phase_var, *phase_options)
-    option_menu.grid(row=row, column=column + 1, sticky="W", padx=10)
-
-def parameter_controls(
-        row: int,
-        column: int,
-        text: str,
-        update_function: callable,
-        unit: str,
-        slider_min: int,
-        slider_max: int,
-        resolution: float|int,
-        slider_tick: int,
-        default_value: int
-):
-    
-    control_variables = {}
-
-    def update_slider(*args):
-        try:
-            if parameter_entry_value.get() == "": return
-            parameter_var.set(float(parameter_entry_value.get()))
-            update_function(parameter_var.get(), clear_entry=False)
-        
-        except ValueError as e:
-            logging.error(e)
-
-    parameter_label = tk.Label(frame, text=text)
-    parameter_label.grid(row=row, column=column, sticky="W", padx=10)
-    parameter_label.config(font=("Arial", 10, "bold"))
-
-    parameter_var = tk.DoubleVar(value=default_value) 
-    control_variables["var"] = parameter_var
-
-    parameter_entry_value = tk.StringVar()
-    parameter_entry_value.set(str(default_value))
-    control_variables["entry_value"] = parameter_entry_value
-    parameter_entry = tk.Entry(
-        frame, 
-        textvariable=parameter_entry_value, 
-        width=5
-    )
-    parameter_entry.grid(row=row, column=column + 1, sticky="E")
-    
-    parameter_entry.bind("<Return>", update_slider)
-    parameter_entry.bind("<FocusOut>", update_slider)
-
-    units_label = tk.Label(frame, text=unit)
-    units_label.grid(row=row, column=column + 2, sticky="W")
-    units_label.config(font=("Arial", 9))
-
-    parameter_slider = tk.Scale(
-        frame,
-        from_=slider_min,
-        to=slider_max,
-        resolution=resolution,
-        orient=tk.HORIZONTAL,
-        length=300,
-        sliderlength=20,
-        tickinterval=slider_tick,
-        cursor="hand2",
-        command=update_function,
-        variable=parameter_var
-    )
-    parameter_slider.grid(row=row, column=column + 3)
-    parameter_slider.set(default_value)  # Set the initial value of the slider
-    control_variables["slider"] = parameter_slider
-
-    return control_variables
-
 def update_amplitude(value: str, clear_entry = True):
 
         if clear_entry: amplitude_entry_value.set("")
@@ -197,13 +64,16 @@ def update_amplitude(value: str, clear_entry = True):
 
         amplitude = round_half_up(float(value)*6553.5)
         rms = round(float(value) / sqrt(2), 3)
-        # rms_label.config(text=f"RMS: {rms} V")
+        rms_label.config(text=f"RMS: {rms} V")
 
         # Create a packet with the command and the amplitude
         # 0x53 is the ASCII code for 'S' and 0x41 is the ASCII code for 'A'
         packet = bytes([0x53, 0x41, phase_id])
         packet += amplitude.to_bytes(2)  # Convert the amplitude to a 2-byte array and append it to the packet  
-        logging.debug(packet.hex('|'))
+        logging.debug(
+            f"Packet: {packet.hex('|')} "
+            f"– Amplitude: {value} V – RMS: {rms} V"
+        )
         
         if "ser" in globals():
             ser.write(packet) # Send the command to the Arduino
@@ -226,7 +96,10 @@ def update_frequency(value, clear_entry = True):
     # 0x53 is the ASCII code for 'S' and 0x46 is the ASCII code for 'F'
     packet = bytes([0x53, 0x46, phase_id])
     packet += frequency.to_bytes(2)  # Convert the frequency to a 2-byte array and append it to the packet
-    logging.debug(packet.hex('|'))
+    logging.debug(
+        f"Packet: {packet.hex('|')} "
+        f"– Frequency: {value} Hz"
+    )
 
     if "ser" in globals():
         ser.write(packet) # Send the command to the Arduino
@@ -250,7 +123,10 @@ def update_phase(value: str, clear_entry = True):
     packet = bytes([0x53, 0x50, phase_id])
     packet += struct.pack('>f', phase_factor)  # Convert the phase to a 4-byte array and append it to the packet
     # packet += value.to_bytes(2)  # Convert the phase to a 2-byte array and append it to the packet  
-    logging.debug(packet.hex('|'))
+    logging.debug(
+        f"Packet: {packet.hex('|')} "
+        f"– Phase: {value}°"
+    )
     
     if "ser" in globals():
         ser.write(packet) # Send the command to the Arduino
@@ -291,7 +167,10 @@ def update_harmonics(value, clear_entry = True):
 
     # Convert the harmonics to a 1-byte array and append it to the packet
     packet += harmonics_number.to_bytes(1)  
-    logging.debug(packet.hex('|'))
+    logging.debug(
+        f"Packet: {packet.hex('|')} "
+        f"– Harmonics: {harmonics_number} – Type: {harmonics_var.get()}"
+    )
     
     if "ser" in globals():
         ser.write(packet) # Send the command to the Arduino
@@ -311,11 +190,192 @@ def update_harmonics(value, clear_entry = True):
             "type": harmonics_var.get()
         }
 
-def harmonic_changed(*args):
+
+
+def phase_selector(
+    row: int,
+    column: int        
+):
+    
+    global phase_id
+    phase_id = 1
+    
+    def phase_changed(*args):
+
+        global phase_id
+    
+        match phase_var.get():
+
+            case "1st": 
+                
+                phase_id = 1
+
+                logging.debug(f"Selected phase: {phase_id}")
+
+                update_amplitude(amplitude1, clear_entry=False)
+                update_frequency(frequency1, clear_entry=False)
+                harmonics_var.set(harmonics1["type"])
+                
+                amplitude_slider.set(str(amplitude1))
+                phase_slider.set(str(phase1))
+                frequency_slider.set(str(frequency1))
+                harmonics_slider.set(str(harmonics1["count"]))
+                
+
+            case "2nd": 
+                
+                phase_id = 2
+
+                logging.debug(f"Selected phase: {phase_id}")
+                
+                update_amplitude(amplitude2, clear_entry=False)
+                update_frequency(frequency2, clear_entry=False)
+                harmonics_var.set(harmonics2["type"])
+
+                amplitude_slider.set(str(amplitude2))
+                phase_slider.set(str(phase2))
+                frequency_slider.set(str(frequency2))
+                harmonics_slider.set(str(harmonics2["count"]))
+
+            case "3rd": 
+                
+                phase_id = 3
+
+                logging.debug(f"Selected phase: {phase_id}")
+
+                update_amplitude(amplitude3, clear_entry=False)
+                update_frequency(frequency3, clear_entry=False)
+                harmonics_var.set(harmonics3["type"])
+                
+                amplitude_slider.set(str(amplitude3))
+                phase_slider.set(str(240))
+                frequency_slider.set(str(frequency3))
+                harmonics_slider.set(str(harmonics3["count"]))
         
-    update_harmonics(harmonics_slider.get())
+    phase_label = tk.Label(frame, text="Selected Phase:")
+    phase_label.grid(row=row, column=column, sticky="W")
+    phase_label.config(font=("Arial", 10, "bold"))
 
+    # Create a Tkinter variable
+    phase_var = tk.StringVar(frame)
+    # Define the options
+    phase_options = [
+        "1st",
+        "2nd",
+        "3rd"
+    ]
 
+    # Set the default option
+    phase_var.set("1st")
+    phase_var.trace_add('write', phase_changed)
+
+    # Create the dropdown menu
+    option_menu = tk.OptionMenu(frame, phase_var, *phase_options)
+    option_menu.grid(row=row, column=column + 1, sticky="W", padx=10)
+
+def parameter_controls(
+        row: int,
+        column: int,
+        text: str,
+        update_function: callable,
+        unit: str,
+        slider_min: int,
+        slider_max: int,
+        resolution: float|int,
+        slider_tick: int,
+        default_value: int|float
+):
+    
+    control_variables = {}
+
+    def update_slider(*args):
+        try:
+            if parameter_entry_value.get() == "": return
+            if isinstance(parameter_var, tk.IntVar):
+                parameter_var.set(int(parameter_entry_value.get()))
+            elif isinstance(parameter_var, tk.DoubleVar):
+                parameter_var.set(float(parameter_entry_value.get()))
+            update_function(parameter_var.get(), clear_entry=False)
+        
+        except ValueError as e:
+            logging.error(e)
+
+    parameter_label = tk.Label(frame, text=text)
+    parameter_label.grid(row=row, column=column, sticky="W", padx=10)
+    parameter_label.config(font=("Arial", 10, "bold"))
+
+    if isinstance(default_value, int):
+        parameter_var = tk.IntVar(value=default_value)
+    elif isinstance(default_value, float):
+        parameter_var = tk.DoubleVar(value=default_value) 
+
+    control_variables["var"] = parameter_var
+
+    parameter_entry_value = tk.StringVar()
+    parameter_entry_value.set(str(default_value))
+    control_variables["entry_value"] = parameter_entry_value
+    parameter_entry = tk.Entry(
+        frame, 
+        textvariable=parameter_entry_value, 
+        width=5
+    )
+    parameter_entry.grid(row=row, column=column + 1, sticky="E")
+    
+    parameter_entry.bind("<Return>", update_slider)
+    parameter_entry.bind("<FocusOut>", update_slider)
+
+    units_label = tk.Label(frame, text=unit)
+    units_label.grid(row=row, column=column + 2, sticky="W")
+    units_label.config(font=("Arial", 9))
+
+    parameter_slider = tk.Scale(
+        frame,
+        from_=slider_min,
+        to=slider_max,
+        resolution=resolution,
+        orient=tk.HORIZONTAL,
+        length=300,
+        sliderlength=20,
+        tickinterval=slider_tick,
+        cursor="hand2",
+        command=update_function,
+        variable=parameter_var
+    )
+    parameter_slider.grid(row=row, column=column + 3)
+    parameter_slider.set(default_value)  # Set the initial value of the slider
+    parameter_var.set(default_value)  # Set the initial value of the variable
+    update_function(parameter_var.get(), clear_entry=False)
+    control_variables["slider"] = parameter_slider
+
+    return control_variables
+
+def harmonic_type_selector(
+    row: int,
+    column: int
+):
+    
+    global harmonics_var
+
+    harmonics_options = [
+        "Even", 
+        "Odd", 
+        "Triplen",
+        "Non-Triplen Odd",
+        "Positive Sequence",
+        "Negative Sequence",
+        "Zero Sequence"
+    ]
+
+    type_label = tk.Label(frame, text="Harmonics Type:")
+    type_label.grid(row=row, column=column, sticky="W", padx=10)
+    type_label.config(font=("Arial", 10, "bold"))
+
+    harmonics_var = tk.StringVar(frame)
+    harmonics_var.set("Odd")
+    harmonics_var.trace_add('write', lambda *args: update_harmonics(harmonics_slider.get()))
+
+    option_menu = tk.OptionMenu(frame, harmonics_var, *harmonics_options)
+    option_menu.grid(row=row, column=column + 3, sticky="W", padx=10)
 
 def signal_on_off_controller(
     text: str,
@@ -352,7 +412,10 @@ def signal_on_off_controller(
             packet[-1] += 0x10  # Turn the signal on
 
         packet = bytes(packet)
-        logging.debug(packet.hex('|'))  
+        logging.debug(
+            f"Packet: {packet.hex('|')} "
+            f"– Signal: {text} – Status: {radio_var.get()}"
+        )  
         
         if "ser" in globals():
             ser.write(packet)
@@ -455,17 +518,16 @@ def signal_on_off_controls(
         "iN"
     )
 
-# def on_frame_click(event):
-    
-#     frame.focus_force()
-
-
 
 def main():
 
     global frame
 
-    logging.basicConfig(level=logging.DEBUG, style='{', format='{levelname}: {message}')
+    logging.basicConfig(
+        level=logging.DEBUG, 
+        style='{', 
+        format='line {lineno} – {levelname}: {message}'
+    )
 
     root = tk.Tk()
     root.title('4Cs4Vs Test Bench GUI')
@@ -477,14 +539,14 @@ def main():
     frame.pack()
     frame.bind("<Button-1>", lambda event: frame.focus_set())
 
-    # frame.columnconfigure(0, minsize=50)
+    frame.columnconfigure(4, minsize=100)
+
+    global rms_label
 
     global  amplitude_entry_value,\
             frequency_entry_value,\
             phase_entry_value,\
             harmonic_entry_value
-    
-    global harmonics_var
     
     global  amplitude_slider,\
             frequency_slider,\
@@ -507,6 +569,10 @@ def main():
         row=0, 
         column=0
     )
+
+    rms_label = tk.Label(frame, text="RMS: 1.000 V")
+    rms_label.grid(row=1, column=4, sticky="W", padx=10, pady=10)
+    rms_label.config(font=("Arial", 9, "bold"))
     
     amplitude_control_variables = parameter_controls(
         row=1,
@@ -518,12 +584,8 @@ def main():
         slider_max=10,
         resolution=0.01,
         slider_tick=1,
-        default_value=1
+        default_value=1.0
     )
-
-    rms_label = tk.Label(frame, text="RMS: 1.000 V")
-    rms_label.grid(row=1, column=4, sticky="W", padx=10, pady=10)
-    rms_label.config(font=("Arial", 9, "bold"))
 
     frequency_control_variables = parameter_controls(
         row=2,
@@ -551,6 +613,8 @@ def main():
         default_value=0
     )
 
+    harmonic_type_selector(row=5, column=0)
+
     harmonic_control_variables = parameter_controls(
         row=4,
         column=0,
@@ -563,44 +627,21 @@ def main():
         slider_tick=10,
         default_value=1
     )
-    
-    amplitude_entry_value = amplitude_control_variables["entry_value"]
-    frequency_entry_value = frequency_control_variables["entry_value"]
-    phase_entry_value = phase_control_variables["entry_value"]
-    harmonic_entry_value = harmonic_control_variables["entry_value"]
-
-    harmonics_var = harmonic_control_variables["var"]
-
-    amplitude_slider = amplitude_control_variables["slider"]
-    frequency_slider = frequency_control_variables["slider"]
-    phase_slider = phase_control_variables["slider"]
-    harmonics_slider = harmonic_control_variables["slider"]
-
-    harmonics_options = [
-        "Even", 
-        "Odd", 
-        "Triplen",
-        "Non-Triplen Odd",
-        "Positive Sequence",
-        "Negative Sequence",
-        "Zero Sequence"
-    ]
-
-    type_label = tk.Label(frame, text="Harmonics Type:")
-    type_label.grid(row=5, column=0, sticky="W", padx=10)
-    type_label.config(font=("Arial", 10, "bold"))
-
-    harmonics_var = tk.StringVar(frame)
-    harmonics_var.set("Odd")
-    harmonics_var.trace_add('write', harmonic_changed)
-
-    option_menu = tk.OptionMenu(frame, harmonics_var, *harmonics_options)
-    option_menu.grid(row=5, column=3, sticky="W", padx=10)
 
     signal_on_off_controls(
         control_signals_start_row = 0, 
         control_signals_start_column = 11
     )
+
+    amplitude_entry_value = amplitude_control_variables["entry_value"]
+    frequency_entry_value = frequency_control_variables["entry_value"]
+    phase_entry_value = phase_control_variables["entry_value"]
+    harmonic_entry_value = harmonic_control_variables["entry_value"]
+
+    amplitude_slider = amplitude_control_variables["slider"]
+    frequency_slider = frequency_control_variables["slider"]
+    phase_slider = phase_control_variables["slider"]
+    harmonics_slider = harmonic_control_variables["slider"]
 
     root.mainloop()
 
