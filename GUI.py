@@ -90,7 +90,7 @@ def update_frequency(value, clear_entry = True):
 
     if clear_entry: frequency_entry_value.set("")
 
-    frequency = round_half_up(float(value)*3.8)
+    frequency = round_half_up(float(value) * 5.32)
 
     # Create a packet with the command and the frequency
     # 0x53 is the ASCII code for 'S' and 0x46 is the ASCII code for 'F'
@@ -143,7 +143,7 @@ def update_harmonics(value, clear_entry = True):
 
     if clear_entry: harmonic_entry_value.set("")
 
-    harmonics_number = int(value)
+    harmonics_order = int(value)
 
     # Create a packet with the command and the harmonics
     # 0x53 is the ASCII code for 'S' and 0x48 is the ASCII code for 'H'
@@ -151,9 +151,19 @@ def update_harmonics(value, clear_entry = True):
 
     match harmonics_var.get():
         # 0x45 is the ASCII code for 'E'
-        case "Even": packet += bytes([0x45])
+        case "Even": 
+            packet += bytes([0x45])
+            # harmonics_slider.configure(
+            #     from_=2,
+            #     resolution=2
+            # )
         # 0x4F is the ASCII code for 'O'
-        case "Odd": packet += bytes([0x4F])
+        case "Odd": 
+            packet += bytes([0x4F])
+            # harmonics_slider.configure(
+            #     from_=1,
+            #     resolution=2
+            # )
         # 0x54 is the ASCII code for 'T'
         case "Triplen": packet += bytes([0x54])
         # 0x52 is the ASCII code for 'R'
@@ -166,10 +176,10 @@ def update_harmonics(value, clear_entry = True):
         case "Zero Sequence": packet += bytes([0x5A])
 
     # Convert the harmonics to a 1-byte array and append it to the packet
-    packet += harmonics_number.to_bytes(1)  
+    packet += harmonics_order.to_bytes(1)  
     logging.debug(
         f"Packet: {packet.hex('|')} "
-        f"– Harmonics: {harmonics_number} – Type: {harmonics_var.get()}"
+        f"– Harmonics: {harmonics_order} – Type: {harmonics_var.get()}"
     )
     
     if "ser" in globals():
@@ -178,15 +188,15 @@ def update_harmonics(value, clear_entry = True):
 
     match phase_id:
         case 1: harmonics1 = {
-            "count": harmonics_number, 
+            "count": harmonics_order, 
             "type": harmonics_var.get()
         }
         case 2: harmonics2 = {
-            "count": harmonics_number, 
+            "count": harmonics_order, 
             "type": harmonics_var.get()
         }
         case 3: harmonics3 = {
-            "count": harmonics_number, 
+            "count": harmonics_order, 
             "type": harmonics_var.get()
         }
 
@@ -355,8 +365,9 @@ def harmonic_type_selector(
 ):
     
     global harmonics_var
-
+    #TODO: Add a option to turn on/off the harmonics
     harmonics_options = [
+        "None",
         "Even", 
         "Odd", 
         "Triplen",

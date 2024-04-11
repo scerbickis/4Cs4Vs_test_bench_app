@@ -26,12 +26,14 @@
 void setup() {
   // initialize digital pin LED_BUILTIN as an output.
   Serial.begin(115200);
+  while (!Serial);
+  Serial.println("Hello World");
 }
 
 // the loop function runs over and over again forever
 void loop() {
   int i = 0;
-  Serial.print(i);
+  Serial.println(i);
   i++;
   delay(1000);                     // wait for a second
 }
