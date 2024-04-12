@@ -2,14 +2,68 @@ import tkinter as tk
 import serial
 import logging
 import struct
+import matplotlib.pyplot as plt
+import numpy as np
 from serial.tools import list_ports
 from math import sqrt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 
 def round_half_up(float_number: float) -> int:
 
     if float_number >= 0: return int(float_number + 0.5)
     else: return int(float_number - 0.5)
+
+def plot_sine(row: int, column: int, update = False):
+
+    global signals, canvas
+
+    if not update: signals = []
+
+    plt.close()
+
+    t = np.linspace(0, 0.02, 1000, endpoint=False)
+
+    # Create a figure and a subplot
+    fig, ax = plt.subplots()
+    ax.set_ylim(-10, 10)
+
+    # For each phase
+    for i in range(1, 4):
+        # Calculate the y values for the sine wave
+        y = amplitude[i] * np.sin(2 * np.pi * frequency[i] * t + phase[i] * np.pi / 180)
+
+        # Add harmonics if specified
+        if "harmonics_slider" in globals():
+            step = int(harmonics_slider.configure('resolution')[4])
+            first_harmonic = int(harmonics_slider.configure('from')[4])
+            harmonics_order = int(harmonics_slider.get())
+
+            for h in range(first_harmonic + step, harmonics_order, step):
+                y += amplitude[i] * np.sin(2 * np.pi * h * frequency[i] * t + phase[i] * np.pi / 180)
+
+        # Plot x against y
+        if not update: 
+            signal, = ax.plot(t, y)
+            signals.append(signal)
+        else:
+            signals[i-1].set_ydata(y)
+
+    if not update: canvas = FigureCanvasTkAgg(fig, master=frame)
+    
+    canvas.draw()
+
+    if not update:
+        canvas_widget = canvas.get_tk_widget()
+        canvas_widget.config(width=300, height=200)
+        canvas_widget.grid(
+            row=row, 
+            column=column, 
+            columnspan=5, 
+            sticky="W",
+            padx=10,
+            pady=10
+        )
 
 
 
@@ -22,7 +76,7 @@ def check_response(request: bytes) -> bool:
 
 def select_comport(comport):
 
-    logging.debug(f"Selected Serial port: {comport}")
+    logging.info(f"Selected Serial port: {comport}")
     global selected_comport
     selected_comport = comport
 
@@ -58,19 +112,23 @@ def menu(root: tk.Tk):
 
 
 def update_amplitude(value: str, clear_entry = True):
+        
+        global amplitude
+
+        amplitude[phase_id] = float(value)
+        plot_sine(row=10, column=0, update=True)
 
         if clear_entry: amplitude_entry_value.set("")
-        global amplitude1, amplitude2, amplitude3
 
-        amplitude = round_half_up(float(value)*6553.5)
         rms = round(float(value) / sqrt(2), 3)
         rms_label.config(text=f"RMS: {rms} V")
 
         # Create a packet with the command and the amplitude
         # 0x53 is the ASCII code for 'S' and 0x41 is the ASCII code for 'A'
         packet = bytes([0x53, 0x41, phase_id])
-        packet += amplitude.to_bytes(2)  # Convert the amplitude to a 2-byte array and append it to the packet  
-        logging.debug(
+        # Convert the amplitude to a 2-byte array and append it to the packet
+        packet += round_half_up(float(value)*6553.5).to_bytes(2)    
+        logging.info(
             f"Packet: {packet.hex('|')} "
             f"– Amplitude: {value} V – RMS: {rms} V"
         )
@@ -79,24 +137,21 @@ def update_amplitude(value: str, clear_entry = True):
             ser.write(packet) # Send the command to the Arduino
             check_response(packet)
 
-        match phase_id:
-            case 1: amplitude1 = float(value)
-            case 2: amplitude2 = float(value)
-            case 3: amplitude3 = float(value)
-
 def update_frequency(value, clear_entry = True):
 
-    global frequency1, frequency2, frequency3
+    global frequency
+
+    frequency[phase_id] = int(value)
+    plot_sine(row=10, column=0, update=True)
 
     if clear_entry: frequency_entry_value.set("")
-
-    frequency = round_half_up(float(value) * 5.32)
 
     # Create a packet with the command and the frequency
     # 0x53 is the ASCII code for 'S' and 0x46 is the ASCII code for 'F'
     packet = bytes([0x53, 0x46, phase_id])
-    packet += frequency.to_bytes(2)  # Convert the frequency to a 2-byte array and append it to the packet
-    logging.debug(
+    # Convert the frequency to a 2-byte array and append it to the packet
+    packet += round_half_up(float(value) * 5.32).to_bytes(2)  
+    logging.info(
         f"Packet: {packet.hex('|')} "
         f"– Frequency: {value} Hz"
     )
@@ -105,14 +160,12 @@ def update_frequency(value, clear_entry = True):
         ser.write(packet) # Send the command to the Arduino
         check_response(packet)
 
-    match phase_id:
-        case 1: frequency1 = int(value)
-        case 2: frequency2 = int(value)
-        case 3: frequency3 = int(value)
-
 def update_phase(value: str, clear_entry = True):
 
-    global phase1, phase2, phase3
+    global phase
+
+    phase[phase_id] = int(value)
+    plot_sine(row=10, column=0, update=True)
 
     if clear_entry: phase_entry_value.set("")
 
@@ -123,7 +176,7 @@ def update_phase(value: str, clear_entry = True):
     packet = bytes([0x53, 0x50, phase_id])
     packet += struct.pack('>f', phase_factor)  # Convert the phase to a 4-byte array and append it to the packet
     # packet += value.to_bytes(2)  # Convert the phase to a 2-byte array and append it to the packet  
-    logging.debug(
+    logging.info(
         f"Packet: {packet.hex('|')} "
         f"– Phase: {value}°"
     )
@@ -132,35 +185,31 @@ def update_phase(value: str, clear_entry = True):
         ser.write(packet) # Send the command to the Arduino
         check_response(packet)
     
-    match phase_id:
-        case 1: phase1 = int(value)
-        case 2: phase2 = int(value)
-        case 3: phase3 = int(value)
-
-def update_harmonics(value, clear_entry = True):
-
-    global harmonics1, harmonics2, harmonics3
+def update_harmonics(value, clear_entry = True, type_changed = False):
 
     if clear_entry: harmonic_entry_value.set("")
 
     harmonics_order = int(value)
 
-    if harmonics_order == 0: 
-        harmonics_order = 1
-        harmonics_slider.set(1)
-
     # Create a packet with the command and the harmonics
     # 0x53 is the ASCII code for 'S' and 0x48 is the ASCII code for 'H'
     packet = bytes([0x53, 0x48, phase_id])
 
-    match harmonics_var.get():
+    match harmonics_type_var.get():
         # 0x42 is the ASCII code for 'B' (B - bez)
         case "None": 
 
-            harmonics_slider.set(1)
-            harmonics_slider.configure(state = "disabled")
+            harmonics_order_var.set(1)
+            harmonics_order = 1
+            harmonics_slider.configure(
+                from_ = 1,
+                to = 50,
+                resolution = 1,
+                state = "disabled",
+                cursor = "arrow"
+            )
             
-            harmonic_entry_value.set("")
+            harmonic_entry_value.set("1")
             harmonic_entry.config(state = "disabled")
 
             packet += bytes([0x42])
@@ -169,9 +218,14 @@ def update_harmonics(value, clear_entry = True):
         case "All": 
 
             harmonics_slider.configure(
-                resolution=1,
-                state = "normal"
+                from_ = 1,
+                to = 50,
+                resolution = 1,
+                tickinterval = 4,
+                state = "normal",
+                cursor = "hand2"
             )
+
             harmonic_entry.config(state = "normal")
 
             packet += bytes([0x41])
@@ -180,10 +234,16 @@ def update_harmonics(value, clear_entry = True):
         case "Even": 
 
             harmonics_slider.configure(
+                from_=2,
+                to = 50,
                 resolution=2,
-                state = "normal"
+                state = "normal",
+                tickinterval = 4,
+                cursor = "hand2"
             )
+
             harmonic_entry.config(state = "normal")
+
 
             packet += bytes([0x45])
 
@@ -191,49 +251,118 @@ def update_harmonics(value, clear_entry = True):
         case "Odd": 
 
             harmonics_slider.configure(
-                from_=1,
-                resolution=2,
-                state = "normal"
+                from_ = 1,
+                to = 49,
+                resolution = 2,
+                tickinterval = 4,
+                state = "normal",
+                cursor = "hand2"
             )
+
             harmonic_entry.config(state = "normal")
             packet += bytes([0x4F])
 
         # 0x54 is the ASCII code for 'T'
-        case "Triplen": packet += bytes([0x54])
+        case "Triplen": 
+            
+            harmonics_slider.configure(
+                from_ = 3,
+                to = 45,
+                resolution = 6,
+                tickinterval = 6,
+                state = "normal",
+                cursor = "hand2"
+            )
+
+            harmonic_entry.config(state = "normal")
+            
+            packet += bytes([0x54])
+
         # 0x52 is the ASCII code for 'R'
-        case "Non-Triplen Odd": packet += bytes([0x52])
+        case "Non-Triplen Odd": 
+            
+            harmonics_slider.configure(
+                from_ = 1,
+                to = 49,
+                resolution = 2,
+                tickinterval = 6,
+                state = "normal",
+                cursor = "hand2"
+            )
+
+            harmonic_entry.config(state = "normal")
+            
+            if harmonics_order % 3 == 0: 
+                harmonics_order += 2
+                harmonics_slider.set(harmonics_order)
+            
+            
+            packet += bytes([0x52])
+
         # 0x50 is the ASCII code for 'P'
-        case "Positive Sequence": packet += bytes([0x50])
+        case "Positive Sequence": 
+            
+            harmonics_slider.configure(
+                from_ = 1,
+                to = 49,
+                resolution = 3,
+                tickinterval = 6,
+                state = "normal",
+                cursor = "hand2"
+            )
+            
+            harmonic_entry.config(state = "normal")
+
+            packet += bytes([0x50])
+
         # 0x4E is the ASCII code for 'N'
-        case "Negative Sequence": packet += bytes([0x4E])
+        case "Negative Sequence": 
+            
+            harmonics_slider.configure(
+                from_ = 2,
+                to = 50,
+                resolution = 3,
+                tickinterval = 6,
+                state = "normal",
+                cursor = "hand2"
+            )
+
+            harmonic_entry.config(state = "normal")
+
+            packet += bytes([0x4E])
+
         # 0x5A is the ASCII code for 'Z'
-        case "Zero Sequence": packet += bytes([0x5A])
+        case "Zero Sequence": 
+            
+            harmonics_slider.configure(
+                from_ = 3,
+                to = 48,
+                resolution = 3,
+                tickinterval = 6,
+                state = "normal",
+                cursor = "hand2"
+            )
+
+            harmonic_entry.config(state = "normal")
+
+            packet += bytes([0x5A])
+
+    if type_changed: 
+        harmonics_order_var.set(harmonics_slider.configure('from')[4])   
+        harmonics_order = int(harmonics_order_var.get())  
+
+    plot_sine(row=10, column=0, update=True)
 
     # Convert the harmonics to a 1-byte array and append it to the packet
     packet += harmonics_order.to_bytes(1)  
-    logging.debug(
+    logging.info(
         f"Packet: {packet.hex('|')} "
-        f"– Harmonics: {harmonics_order} – Type: {harmonics_var.get()}"
+        f"– Harmonics: {harmonics_order} – Type: {harmonics_type_var.get()}"
     )
     
     if "ser" in globals():
         ser.write(packet) # Send the command to the Arduino
         check_response(packet)
-
-    match phase_id:
-        case 1: harmonics1 = {
-            "count": harmonics_order, 
-            "type": harmonics_var.get()
-        }
-        case 2: harmonics2 = {
-            "count": harmonics_order, 
-            "type": harmonics_var.get()
-        }
-        case 3: harmonics3 = {
-            "count": harmonics_order, 
-            "type": harmonics_var.get()
-        }
-
 
 
 def phase_selector(
@@ -250,52 +379,19 @@ def phase_selector(
     
         match phase_var.get():
 
-            case "1st": 
-                
-                phase_id = 1
-
-                logging.debug(f"Selected phase: {phase_id}")
-
-                update_amplitude(amplitude1, clear_entry=False)
-                update_frequency(frequency1, clear_entry=False)
-                harmonics_var.set(harmonics1["type"])
-                
-                amplitude_slider.set(str(amplitude1))
-                phase_slider.set(str(phase1))
-                frequency_slider.set(str(frequency1))
-                harmonics_slider.set(str(harmonics1["count"]))
-                
-
-            case "2nd": 
-                
-                phase_id = 2
-
-                logging.debug(f"Selected phase: {phase_id}")
-                
-                update_amplitude(amplitude2, clear_entry=False)
-                update_frequency(frequency2, clear_entry=False)
-                harmonics_var.set(harmonics2["type"])
-
-                amplitude_slider.set(str(amplitude2))
-                phase_slider.set(str(phase2))
-                frequency_slider.set(str(frequency2))
-                harmonics_slider.set(str(harmonics2["count"]))
-
-            case "3rd": 
-                
-                phase_id = 3
-
-                logging.debug(f"Selected phase: {phase_id}")
-
-                update_amplitude(amplitude3, clear_entry=False)
-                update_frequency(frequency3, clear_entry=False)
-                harmonics_var.set(harmonics3["type"])
-                
-                amplitude_slider.set(str(amplitude3))
-                phase_slider.set(str(240))
-                frequency_slider.set(str(frequency3))
-                harmonics_slider.set(str(harmonics3["count"]))
+            case "1st": phase_id = 1
+            case "2nd": phase_id = 2
+            case "3rd": phase_id = 3
         
+        logging.info(f"Selected phase: {phase_id}")
+
+        update_amplitude(amplitude[phase_id], clear_entry=False)
+        update_frequency(frequency[phase_id], clear_entry=False)
+        
+        amplitude_slider.set(str(amplitude[phase_id]))
+        phase_slider.set(str(phase[phase_id]))
+        frequency_slider.set(str(frequency[phase_id]))
+
     phase_label = tk.Label(frame, text="Selected Phase:")
     phase_label.grid(row=row, column=column, sticky="W")
     phase_label.config(font=("Arial", 10, "bold"))
@@ -303,18 +399,19 @@ def phase_selector(
     # Create a Tkinter variable
     phase_var = tk.StringVar(frame)
     # Define the options
-    phase_options = [
-        "1st",
-        "2nd",
-        "3rd"
-    ]
+    phase_options = [ "1st", "2nd", "3rd" ]
 
     # Set the default option
     phase_var.set("1st")
     phase_var.trace_add('write', phase_changed)
 
     # Create the dropdown menu
-    option_menu = tk.OptionMenu(frame, phase_var, *phase_options)
+    option_menu = tk.OptionMenu(
+        frame, 
+        phase_var, 
+        *phase_options
+    )
+    option_menu.config(width=4)
     option_menu.grid(row=row, column=column + 1, sticky="W", padx=10)
 
 def parameter_controls(
@@ -339,7 +436,7 @@ def parameter_controls(
                 parameter_var.set(int(parameter_entry_value.get()))
             elif isinstance(parameter_var, tk.DoubleVar):
                 parameter_var.set(float(parameter_entry_value.get()))
-            update_function(parameter_var.get(), clear_entry=False)
+            update_function(parameter_slider.get(), clear_entry=False)
         
         except ValueError as e:
             logging.error(e)
@@ -371,7 +468,11 @@ def parameter_controls(
     control_variables["entry"] = parameter_entry
 
     units_label = tk.Label(frame, text=unit)
-    units_label.grid(row=row, column=column + 2, sticky="W")
+    units_label.grid(
+        row = row, 
+        column = column + 2, 
+        sticky = "W"
+    )
     units_label.config(font=("Arial", 9))
 
     parameter_slider = tk.Scale(
@@ -382,12 +483,17 @@ def parameter_controls(
         orient=tk.HORIZONTAL,
         length=300,
         sliderlength=20,
-        tickinterval=slider_tick,
-        cursor="hand2",
-        command=update_function,
-        variable=parameter_var
+        tickinterval = slider_tick,
+        cursor = "hand2",
+        command = update_function,
+        variable = parameter_var
     )
-    parameter_slider.grid(row=row, column=column + 3)
+    parameter_slider.grid(
+        row = row, 
+        column = column + 3,
+        padx = 10,
+        sticky = "E"
+    )
     parameter_slider.set(default_value)  # Set the initial value of the slider
     parameter_var.set(default_value)  # Set the initial value of the variable
     control_variables["slider"] = parameter_slider
@@ -399,8 +505,7 @@ def harmonic_type_selector(
     column: int
 ):
     
-    global harmonics_var
-    #TODO: Add a option to turn on/off the harmonics
+    global harmonics_type_var
     harmonics_options = [
         "None",
         "All",
@@ -417,11 +522,18 @@ def harmonic_type_selector(
     type_label.grid(row=row, column=column, sticky="W", padx=10)
     type_label.config(font=("Arial", 10, "bold"))
 
-    harmonics_var = tk.StringVar(frame)
-    harmonics_var.set("None")
-    harmonics_var.trace_add('write', lambda *args: update_harmonics(harmonics_slider.get()))
+    harmonics_type_var = tk.StringVar(frame)
+    harmonics_type_var.set("None")
+    harmonics_type_var.trace_add(
+        'write', 
+        lambda *args: update_harmonics(
+            harmonics_slider.get(),
+            type_changed=True
+        )
+    )
 
-    option_menu = tk.OptionMenu(frame, harmonics_var, *harmonics_options)
+    option_menu = tk.OptionMenu(frame, harmonics_type_var, *harmonics_options)
+    option_menu.config(width=17)
     option_menu.grid(row=row, column=column + 3, sticky="W", padx=10)
 
 def signal_on_off_controller(
@@ -459,7 +571,7 @@ def signal_on_off_controller(
             packet[-1] += 0x10  # Turn the signal on
 
         packet = bytes(packet)
-        logging.debug(
+        logging.info(
             f"Packet: {packet.hex('|')} "
             f"– Signal: {text} – Status: {radio_var.get()}"
         )  
@@ -503,7 +615,7 @@ def signal_on_off_controls(
     control_signals_start_column: int
 ):
     
-    output_label = tk.Label(frame, text="Control output signals:")
+    output_label = tk.Label(frame, text="Output signal statuses:")
     output_label.grid(row=control_signals_start_row, column=control_signals_start_column, sticky="W")
     output_label.config(font=("Arial", 12, "bold"))
 
@@ -566,12 +678,16 @@ def signal_on_off_controls(
 
 def main():
 
+    def on_closing():
+        plt.close('all')
+        root.destroy()
+
     global frame
 
     logging.basicConfig(
-        level=logging.DEBUG, 
-        style='{', 
-        format='line {lineno} – {levelname}: {message}'
+        level = 'INFO', 
+        style = '{', 
+        format = 'line {lineno} – {levelname}: {message}'
     )
 
     root = tk.Tk()
@@ -584,7 +700,9 @@ def main():
     frame.pack()
     frame.bind("<Button-1>", lambda event: frame.focus_set())
 
+    frame.columnconfigure(3, minsize=300)
     frame.columnconfigure(4, minsize=100)
+    frame.columnconfigure(11, minsize=20)
 
     global rms_label
 
@@ -594,23 +712,21 @@ def main():
             harmonic_entry_value
     
     global  harmonic_entry
+
+    global  harmonics_order_var
     
     global  amplitude_slider,\
             frequency_slider,\
             phase_slider,\
             harmonics_slider
     
-    global amplitude1, amplitude2, amplitude3
-    global frequency1, frequency2, frequency3
-    global phase1, phase2, phase3
-    global harmonics1, harmonics2, harmonics3
+    global amplitude
+    global frequency
+    global phase
 
-    amplitude1 = 1; amplitude2 = 1; amplitude3 = 1  
-    phase1 = 0; phase2 = 120; phase3 = 240
-    frequency1 = 50; frequency2 = 50; frequency3 = 50
-    harmonics1 = {"count": 1, "type": "None"}
-    harmonics2 = {"count": 1, "type": "None"}
-    harmonics3 = {"count": 1, "type": "None"}
+    amplitude = { 1: 1, 2: 1, 3: 1 }
+    frequency = { 1: 50, 2: 50, 3: 50 }
+    phase = { 1: 0, 2: 120, 3: 240 }
 
     phase_selector(
         row=0, 
@@ -618,7 +734,7 @@ def main():
     )
 
     rms_label = tk.Label(frame, text="RMS: 1.000 V")
-    rms_label.grid(row=1, column=4, sticky="W", padx=10, pady=10)
+    rms_label.grid(row=1, column=4, sticky="W")
     rms_label.config(font=("Arial", 9, "bold"))
     
     amplitude_control_variables = parameter_controls(
@@ -668,17 +784,19 @@ def main():
         text="Harmonics Order:",
         update_function=update_harmonics,
         unit="",
-        slider_min=0,
+        slider_min=1,
         slider_max=50,
         resolution=1,
-        slider_tick=10,
+        slider_tick=4,
         default_value=1
     )
 
     signal_on_off_controls(
         control_signals_start_row = 0, 
-        control_signals_start_column = 11
+        control_signals_start_column = 12
     )
+
+    plot_sine(row=10, column=0)
 
     amplitude_entry_value = amplitude_control_variables["entry_value"]
     frequency_entry_value = frequency_control_variables["entry_value"]
@@ -686,6 +804,8 @@ def main():
     harmonic_entry_value = harmonic_control_variables["entry_value"]
 
     harmonic_entry = harmonic_control_variables["entry"]
+
+    harmonics_order_var = harmonic_control_variables["var"]
 
     amplitude_slider = amplitude_control_variables["slider"]
     frequency_slider = frequency_control_variables["slider"]
@@ -695,6 +815,7 @@ def main():
     harmonic_entry.config(state="disabled")
     harmonics_slider.configure(state="disabled")
 
+    root.protocol("WM_DELETE_WINDOW", on_closing)
     root.mainloop()
 
 main()
