@@ -39,8 +39,13 @@ def plot_sine(row: int, column: int, update = False):
             first_harmonic = int(harmonics_slider.configure('from')[4])
             harmonics_order = int(harmonics_slider.get())
 
-            for h in range(first_harmonic + step, harmonics_order, step):
-                y += amplitude[i] * np.sin(2 * np.pi * h * frequency[i] * t + phase[i] * np.pi / 180)
+            logging.info(f"step: {step}")
+            logging.info(first_harmonic)
+            logging.info(harmonics_order)
+
+            for h in range(first_harmonic + step, harmonics_order + 1, step):
+                logging.info(f"Adding harmonic {h} to phase {i}")
+                y += amplitude[i] / h * np.sin(h * (2 * np.pi *  frequency[i] * t + phase[i] * np.pi / 180))
 
         # Plot x against y
         if not update: 
