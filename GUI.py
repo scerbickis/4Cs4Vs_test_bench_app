@@ -145,25 +145,59 @@ def update_harmonics(value, clear_entry = True):
 
     harmonics_order = int(value)
 
+    if harmonics_order == 0: 
+        harmonics_order = 1
+        harmonics_slider.set(1)
+
     # Create a packet with the command and the harmonics
     # 0x53 is the ASCII code for 'S' and 0x48 is the ASCII code for 'H'
     packet = bytes([0x53, 0x48, phase_id])
 
     match harmonics_var.get():
+        # 0x42 is the ASCII code for 'B' (B - bez)
+        case "None": 
+
+            harmonics_slider.set(1)
+            harmonics_slider.configure(state = "disabled")
+            
+            harmonic_entry_value.set("")
+            harmonic_entry.config(state = "disabled")
+
+            packet += bytes([0x42])
+
+        # 0x41 is the ASCII code for 'A' (A - all)
+        case "All": 
+
+            harmonics_slider.configure(
+                resolution=1,
+                state = "normal"
+            )
+            harmonic_entry.config(state = "normal")
+
+            packet += bytes([0x41])
+
         # 0x45 is the ASCII code for 'E'
         case "Even": 
+
+            harmonics_slider.configure(
+                resolution=2,
+                state = "normal"
+            )
+            harmonic_entry.config(state = "normal")
+
             packet += bytes([0x45])
-            # harmonics_slider.configure(
-            #     from_=2,
-            #     resolution=2
-            # )
+
         # 0x4F is the ASCII code for 'O'
         case "Odd": 
+
+            harmonics_slider.configure(
+                from_=1,
+                resolution=2,
+                state = "normal"
+            )
+            harmonic_entry.config(state = "normal")
             packet += bytes([0x4F])
-            # harmonics_slider.configure(
-            #     from_=1,
-            #     resolution=2
-            # )
+
         # 0x54 is the ASCII code for 'T'
         case "Triplen": packet += bytes([0x54])
         # 0x52 is the ASCII code for 'R'
@@ -334,6 +368,8 @@ def parameter_controls(
     parameter_entry.bind("<Return>", update_slider)
     parameter_entry.bind("<FocusOut>", update_slider)
 
+    control_variables["entry"] = parameter_entry
+
     units_label = tk.Label(frame, text=unit)
     units_label.grid(row=row, column=column + 2, sticky="W")
     units_label.config(font=("Arial", 9))
@@ -354,7 +390,6 @@ def parameter_controls(
     parameter_slider.grid(row=row, column=column + 3)
     parameter_slider.set(default_value)  # Set the initial value of the slider
     parameter_var.set(default_value)  # Set the initial value of the variable
-    update_function(parameter_var.get(), clear_entry=False)
     control_variables["slider"] = parameter_slider
 
     return control_variables
@@ -368,6 +403,7 @@ def harmonic_type_selector(
     #TODO: Add a option to turn on/off the harmonics
     harmonics_options = [
         "None",
+        "All",
         "Even", 
         "Odd", 
         "Triplen",
@@ -382,7 +418,7 @@ def harmonic_type_selector(
     type_label.config(font=("Arial", 10, "bold"))
 
     harmonics_var = tk.StringVar(frame)
-    harmonics_var.set("Odd")
+    harmonics_var.set("None")
     harmonics_var.trace_add('write', lambda *args: update_harmonics(harmonics_slider.get()))
 
     option_menu = tk.OptionMenu(frame, harmonics_var, *harmonics_options)
@@ -439,6 +475,8 @@ def signal_on_off_controller(
 
     # Create a Tkinter variable
     radio_var = tk.StringVar()
+    # Set the default state
+    radio_var.set("On")
     # Trace the variable
     radio_var.trace_add('write', signal_status_changed)
 
@@ -459,10 +497,6 @@ def signal_on_off_controller(
         value="Off"
     )
     off_button.grid(row=row, column=column + 2, sticky="W")
-
-
-    # Set the default state
-    radio_var.set("On")
 
 def signal_on_off_controls(
     control_signals_start_row: int,
@@ -559,6 +593,8 @@ def main():
             phase_entry_value,\
             harmonic_entry_value
     
+    global  harmonic_entry
+    
     global  amplitude_slider,\
             frequency_slider,\
             phase_slider,\
@@ -572,9 +608,9 @@ def main():
     amplitude1 = 1; amplitude2 = 1; amplitude3 = 1  
     phase1 = 0; phase2 = 120; phase3 = 240
     frequency1 = 50; frequency2 = 50; frequency3 = 50
-    harmonics1 = {"count": 1, "type": "Odd"}
-    harmonics2 = {"count": 1, "type": "Odd"}
-    harmonics3 = {"count": 1, "type": "Odd"}
+    harmonics1 = {"count": 1, "type": "None"}
+    harmonics2 = {"count": 1, "type": "None"}
+    harmonics3 = {"count": 1, "type": "None"}
 
     phase_selector(
         row=0, 
@@ -627,7 +663,7 @@ def main():
     harmonic_type_selector(row=5, column=0)
 
     harmonic_control_variables = parameter_controls(
-        row=4,
+        row=6,
         column=0,
         text="Harmonics Order:",
         update_function=update_harmonics,
@@ -649,10 +685,15 @@ def main():
     phase_entry_value = phase_control_variables["entry_value"]
     harmonic_entry_value = harmonic_control_variables["entry_value"]
 
+    harmonic_entry = harmonic_control_variables["entry"]
+
     amplitude_slider = amplitude_control_variables["slider"]
     frequency_slider = frequency_control_variables["slider"]
     phase_slider = phase_control_variables["slider"]
     harmonics_slider = harmonic_control_variables["slider"]
+
+    harmonic_entry.config(state="disabled")
+    harmonics_slider.configure(state="disabled")
 
     root.mainloop()
 
