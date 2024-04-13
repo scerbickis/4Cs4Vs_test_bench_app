@@ -14,7 +14,7 @@ def round_half_up(float_number: float) -> int:
     if float_number >= 0: return int(float_number + 0.5)
     else: return int(float_number - 0.5)
 
-def plot_sine(row: int, column: int, update = False):
+def plot_signal(row: int, column: int, update = False):
 
     global signals, canvas
 
@@ -26,10 +26,18 @@ def plot_sine(row: int, column: int, update = False):
 
     # Create a figure and a subplot
     fig, ax = plt.subplots()
+    fig.set_size_inches(6, 4)
     ax.set_ylim(-10, 10)
+    ax.set_ylabel("Amplitude (V Pk-Pk)")
+    ax.set_xlabel("Time (s)")
 
     # For each phase
     for i in range(1, 4):
+
+        if signal_status[f"u{i}"] == "Off": 
+            y = np.zeros_like(t)
+            signals[i-1].set_ydata(y)
+            continue
         # Calculate the y values for the sine wave
         y = amplitude[i] * np.sin(2 * np.pi * frequency[i] * t + phase[i] * np.pi / 180)
 
@@ -39,7 +47,7 @@ def plot_sine(row: int, column: int, update = False):
             first_harmonic = int(harmonics_slider.configure('from')[4])
             harmonics_order = int(harmonics_slider.get())
 
-            y = 0
+            y = np.zeros_like(t)
 
             for h in range(first_harmonic, harmonics_order + 1, step):
                 if harmonics_type_var.get() == "Non-Triplen Odd" and h % 3 == 0: continue
@@ -47,7 +55,8 @@ def plot_sine(row: int, column: int, update = False):
 
         # Plot x against y
         if not update: 
-            signal, = ax.plot(t, y)
+            signal, = ax.plot(t, y, label = f"Phase {i}")
+            ax.legend(loc = "upper right", bbox_to_anchor=(1, 1), prop={'size': 7})
             signals.append(signal)
         else:
             signals[i-1].set_ydata(y)
@@ -58,7 +67,7 @@ def plot_sine(row: int, column: int, update = False):
 
     if not update:
         canvas_widget = canvas.get_tk_widget()
-        canvas_widget.config(width=300, height=200)
+        # canvas_widget.config(width=300, height=200)
         canvas_widget.grid(
             row=row, 
             column=column, 
@@ -119,7 +128,7 @@ def update_amplitude(value: str, clear_entry = True):
         global amplitude
 
         amplitude[phase_id] = float(value)
-        plot_sine(row=10, column=0, update=True)
+        plot_signal(row=10, column=0, update=True)
 
         if clear_entry: amplitude_entry_value.set("")
 
@@ -145,7 +154,7 @@ def update_frequency(value, clear_entry = True):
     global frequency
 
     frequency[phase_id] = int(value)
-    plot_sine(row=10, column=0, update=True)
+    plot_signal(row=10, column=0, update=True)
 
     if clear_entry: frequency_entry_value.set("")
 
@@ -168,7 +177,7 @@ def update_phase(value: str, clear_entry = True):
     global phase
 
     phase[phase_id] = int(value)
-    plot_sine(row=10, column=0, update=True)
+    plot_signal(row=10, column=0, update=True)
 
     if clear_entry: phase_entry_value.set("")
 
@@ -354,7 +363,7 @@ def update_harmonics(value, clear_entry = True, type_changed = False):
         harmonics_order_var.set(harmonics_slider.configure('from')[4])   
         harmonics_order = int(harmonics_order_var.get())  
 
-    plot_sine(row=10, column=0, update=True)
+    plot_signal(row=10, column=0, update=True)
 
     # Convert the harmonics to a 1-byte array and append it to the packet
     packet += harmonics_order.to_bytes(1)  
@@ -397,7 +406,7 @@ def phase_selector(
 
     phase_label = tk.Label(frame, text="Selected Phase:")
     phase_label.grid(row=row, column=column, sticky="W")
-    phase_label.config(font=("Arial", 10, "bold"))
+    phase_label.config(font=("Arial", 10, "bold"), bg="white")
 
     # Create a Tkinter variable
     phase_var = tk.StringVar(frame)
@@ -414,7 +423,7 @@ def phase_selector(
         phase_var, 
         *phase_options
     )
-    option_menu.config(width=4)
+    option_menu.config(width=4, bg="white", highlightthickness=0)
     option_menu.grid(row=row, column=column + 1, sticky="W", padx=10)
 
 def parameter_controls(
@@ -446,7 +455,7 @@ def parameter_controls(
 
     parameter_label = tk.Label(frame, text=text)
     parameter_label.grid(row=row, column=column, sticky="W", padx=10)
-    parameter_label.config(font=("Arial", 10, "bold"))
+    parameter_label.config(font=("Arial", 10, "bold"), bg="white")
 
     if isinstance(default_value, int):
         parameter_var = tk.IntVar(value=default_value)
@@ -476,7 +485,7 @@ def parameter_controls(
         column = column + 2, 
         sticky = "W"
     )
-    units_label.config(font=("Arial", 9))
+    units_label.config(font=("Arial", 9), bg="white")
 
     parameter_slider = tk.Scale(
         frame,
@@ -489,7 +498,9 @@ def parameter_controls(
         tickinterval = slider_tick,
         cursor = "hand2",
         command = update_function,
-        variable = parameter_var
+        variable = parameter_var,
+        bg="white",
+        highlightthickness=0
     )
     parameter_slider.grid(
         row = row, 
@@ -523,7 +534,7 @@ def harmonic_type_selector(
 
     type_label = tk.Label(frame, text="Harmonics Type:")
     type_label.grid(row=row, column=column, sticky="W", padx=10)
-    type_label.config(font=("Arial", 10, "bold"))
+    type_label.config(font=("Arial", 10, "bold"), bg="white")
 
     harmonics_type_var = tk.StringVar(frame)
     harmonics_type_var.set("None")
@@ -536,7 +547,7 @@ def harmonic_type_selector(
     )
 
     option_menu = tk.OptionMenu(frame, harmonics_type_var, *harmonics_options)
-    option_menu.config(width=17)
+    option_menu.config(width=17, bg="white", highlightthickness=0)
     option_menu.grid(row=row, column=column + 3, sticky="W", padx=10)
 
 def signal_on_off_controller(
@@ -549,6 +560,9 @@ def signal_on_off_controller(
     
     def signal_status_changed(*args):
 
+        signal_status[id] = radio_var.get()
+        plot_signal(row=10, column=0, update=True)
+        
         # Create a packet with the command and the signal status
         # 0x53 is the ASCII code for 'S' and 0x4F is the ASCII code for 'O'
         packet = [0x53, 0x4F, phase_id]
@@ -585,7 +599,7 @@ def signal_on_off_controller(
      
     signal_label = tk.Label(frame, text=text)
     signal_label.grid(row=row, column=column, sticky="W")
-    signal_label.config(font=("Arial", 9))
+    signal_label.config(font=("Arial", 9), bg="white")
     frame.rowconfigure(row, minsize=50)
 
     # Create a Tkinter variable
@@ -603,6 +617,7 @@ def signal_on_off_controller(
         value="On"
     )
     on_button.grid(row=row, column=column + 1)
+    on_button.config(bg="white")
 
     # Create the "Off" radio button
     off_button = tk.Radiobutton(
@@ -612,6 +627,7 @@ def signal_on_off_controller(
         value="Off"
     )
     off_button.grid(row=row, column=column + 2, sticky="W")
+    off_button.config(bg="white")
 
 def signal_on_off_controls(
     control_signals_start_row: int,
@@ -620,7 +636,7 @@ def signal_on_off_controls(
     
     output_label = tk.Label(frame, text="Output signal statuses:")
     output_label.grid(row=control_signals_start_row, column=control_signals_start_column, sticky="W")
-    output_label.config(font=("Arial", 12, "bold"))
+    output_label.config(font=("Arial", 12, "bold"), bg="white")
 
     signal_on_off_controller(
         "First phase voltage (u1)", 
@@ -695,17 +711,23 @@ def main():
 
     root = tk.Tk()
     root.title('4Cs4Vs Test Bench GUI')
-
+    root.configure(bg='white')
+    
     menu(root)
 
     # Create a frame for the GUI
     frame = tk.Frame(root)
     frame.pack()
     frame.bind("<Button-1>", lambda event: frame.focus_set())
+    frame.configure(bg='white')
 
-    frame.columnconfigure(3, minsize=300)
-    frame.columnconfigure(4, minsize=100)
-    frame.columnconfigure(11, minsize=20)
+    for i in range(12): 
+        frame.columnconfigure(i, weight=1)
+        frame.rowconfigure(i, weight=1)
+
+    frame.columnconfigure(3, minsize=300, weight=1)
+    frame.columnconfigure(4, minsize=100, weight=1)
+    frame.columnconfigure(11, minsize=20, weight=1)
 
     global rms_label
 
@@ -731,7 +753,16 @@ def main():
     amplitude = { 1: 1, 2: 1, 3: 1 }
     frequency = { 1: 50, 2: 50, 3: 50 }
     phase = { 1: 0, 2: 120, 3: 240 }
-    signal_status = { "u1": "On"}
+    signal_status = {
+        "u1": "On",
+        "u2": "On",
+        "u3": "On",
+        "un": "On",
+        "i1": "On",
+        "i2": "On",
+        "i3": "On",
+        "in": "On"
+    }
 
     phase_selector(
         row=0, 
@@ -740,7 +771,7 @@ def main():
 
     rms_label = tk.Label(frame, text="RMS: 1.000 V")
     rms_label.grid(row=1, column=4, sticky="W")
-    rms_label.config(font=("Arial", 9, "bold"))
+    rms_label.config(font=("Arial", 9, "bold"), bg="white")
     
     amplitude_control_variables = parameter_controls(
         row=1,
@@ -801,7 +832,7 @@ def main():
         control_signals_start_column = 12
     )
 
-    plot_sine(row=10, column=0)
+    plot_signal(row=10, column=0)
 
     amplitude_entry_value = amplitude_control_variables["entry_value"]
     frequency_entry_value = frequency_control_variables["entry_value"]
