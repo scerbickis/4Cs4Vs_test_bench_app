@@ -22,7 +22,7 @@ def plot_sine(row: int, column: int, update = False):
 
     plt.close()
 
-    t = np.linspace(0, 0.02, 1000, endpoint=False)
+    t = np.linspace(0, 0.02, 10000, endpoint=False)
 
     # Create a figure and a subplot
     fig, ax = plt.subplots()
@@ -39,12 +39,10 @@ def plot_sine(row: int, column: int, update = False):
             first_harmonic = int(harmonics_slider.configure('from')[4])
             harmonics_order = int(harmonics_slider.get())
 
-            logging.info(f"step: {step}")
-            logging.info(first_harmonic)
-            logging.info(harmonics_order)
+            y = 0
 
-            for h in range(first_harmonic + step, harmonics_order + 1, step):
-                logging.info(f"Adding harmonic {h} to phase {i}")
+            for h in range(first_harmonic, harmonics_order + 1, step):
+                if harmonics_type_var.get() == "Non-Triplen Odd" and h % 3 == 0: continue
                 y += amplitude[i] / h * np.sin(h * (2 * np.pi *  frequency[i] * t + phase[i] * np.pi / 180))
 
         # Plot x against y
@@ -728,10 +726,12 @@ def main():
     global amplitude
     global frequency
     global phase
+    global signal_status
 
     amplitude = { 1: 1, 2: 1, 3: 1 }
     frequency = { 1: 50, 2: 50, 3: 50 }
     phase = { 1: 0, 2: 120, 3: 240 }
+    signal_status = { "u1": "On"}
 
     phase_selector(
         row=0, 
