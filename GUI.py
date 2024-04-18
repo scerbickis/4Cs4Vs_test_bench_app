@@ -5,7 +5,7 @@ import struct
 import matplotlib.pyplot as plt
 import numpy as np
 from serial.tools import list_ports
-from math import sqrt
+from math import sqrt, hypot, atan2
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 
@@ -14,13 +14,42 @@ def round_half_up(float_number: float) -> int:
     if float_number >= 0: return int(float_number + 0.5)
     else: return int(float_number - 0.5)
 
-def plot_signal(row: int, column: int, update = False):
+def update_signal():
 
-    global signals, canvas_signals
+    if "harmonics_slider" not in globals(): return
 
-    if not update: signals = []
+    loop_params = zip(amplitude.values(), frequency.values(), phase.values(), signals)
 
-    plt.close()
+    yN = 0
+
+    for a, f, ph, signal in loop_params:
+
+        # Add harmonics if specified
+        
+        step = int(harmonics_slider.configure('resolution')[4])
+        first_harmonic = int(harmonics_slider.configure('from')[4])
+        harmonics_order = int(harmonics_slider.get())
+
+        y = 0
+
+        for h in range(first_harmonic, harmonics_order + 1, step):
+            
+            if harmonics_type_var.get() == "Non-Triplen Odd" and h % 3 == 0: continue
+            
+            y += a / h * np.sin(h * (2 * np.pi *  f / 1000  * t + ph * np.pi / 180))
+        
+        signal.set_ydata(y)
+        yN += y
+
+    signalN.set_ydata(yN)
+
+    canvas_signals.draw()
+
+def plot_signal(row: int, column: int):
+
+    global signals, canvas_signals, t, signalN
+
+    signals = []
 
     t = np.linspace(0, 20, 10000, endpoint=False)
 
@@ -30,52 +59,42 @@ def plot_signal(row: int, column: int, update = False):
     ax.set_ylim(-10, 10)
     ax.set_ylabel("Amplitude (V Pk-Pk)")
     ax.set_xlabel("Time (ms)")
+    ax.grid(linewidth=0.5, color='lightgray', linestyle='--')
+    ax.axhline(0, color='black', linewidth=0.5)  # Add x-axis
+
+    loop_params = zip(amplitude.values(), frequency.values(), phase.values(), colors)
+
+    yN = 0
     
     # For each phase
-    for i in range(1, 4):
-
-        if signal_status[f"u{i}"] == "Off": 
-            y = np.zeros_like(t)
-            signals[i-1].set_ydata(y)
-            continue
+    for i, (A, f, ph, color) in enumerate(loop_params):
 
         # Calculate the y values for the sine wave
-        y = amplitude[i] * np.sin(2 * np.pi * frequency[i] / 1000 * t + phase[i] * np.pi / 180)
+        y = A * np.sin(2 * np.pi * f / 1000 * t + ph * np.pi / 180)
 
-        # Add harmonics if specified
-        if "harmonics_slider" in globals():
-            step = int(harmonics_slider.configure('resolution')[4])
-            first_harmonic = int(harmonics_slider.configure('from')[4])
-            harmonics_order = int(harmonics_slider.get())
-
-            y = np.zeros_like(t)
-
-            for h in range(first_harmonic, harmonics_order + 1, step):
-                if harmonics_type_var.get() == "Non-Triplen Odd" and h % 3 == 0: continue
-                y += amplitude[i] / h * np.sin(h * (2 * np.pi *  frequency[i] / 1000  * t + phase[i] * np.pi / 180))
+        yN += y
 
         # Plot x against y
-        if not update: 
-            signal, = ax.plot(t, y, label = f"Phase {i}")
-            ax.legend(loc = "upper right", bbox_to_anchor=(1, 1), prop={'size': 7})
-            signals.append(signal)
-        else:
-            signals[i-1].set_ydata(y)
+        signal, = ax.plot(t, y, label = f"L{i}", color=color)
+        signals.append(signal)
 
-    if not update: canvas_signals = FigureCanvasTkAgg(fig, master=frame)
+    signalN, = ax.plot(t, yN, label = "N", color=colors[-1])
+
+    ax.legend(loc = "upper right", bbox_to_anchor=(1, 1), prop={'size': 7})
+    
+    canvas_signals = FigureCanvasTkAgg(fig, master=frame)
     
     canvas_signals.draw()
 
-    if not update:
-        canvas_widget = canvas_signals.get_tk_widget()
-        canvas_widget.grid(
-            row=row, 
-            column=column, 
-            columnspan=5, 
-            sticky="W",
-            padx=10,
-            pady=10
-        )
+    canvas_widget = canvas_signals.get_tk_widget()
+    canvas_widget.grid(
+        row=row, 
+        column=column, 
+        columnspan=5, 
+        sticky="W",
+        padx=10,
+        pady=10
+    )
 
 def update_phasor():
 
@@ -85,37 +104,47 @@ def update_phasor():
 
     loop_params = zip(phasors, angles_rad, amplitude.values())
 
+    aN = bN = 0
+
     for phasor, angle, magnitude in loop_params:
+
         phasor.set_UVC(
             angle, 
             magnitude
         )
 
+        aN += magnitude * np.cos(angle)
+        bN += magnitude * np.sin(angle)
+
+    phasorN.set_UVC(
+        atan2(bN, aN), # U
+        hypot(aN, bN) , # V
+    )
+
+
     canvas_phasors.draw_idle()
 
-def plot_phasors(row: int, column: int, update = False):
+def plot_phasors(row: int, column: int):
 
     global phasors, canvas_phasors
-    global colors
+    global phasorN
 
     phasors = []
-    colors = ['blue', 'orange', 'green']
 
     fig, ax = plt.subplots(subplot_kw={'projection': 'polar'})
     ax.set_ylim(0, 10)
     ax.set_rticks([i for i in range(1, 11)])
-    ax.set_xticks(np.linspace(0, 2*np.pi, 13))
-    ax.grid(True)
+    ax.set_xticks(np.linspace(0, 2*np.pi, 12, endpoint=False))
+    ax.grid(linewidth=0.5, color='lightgray', linestyle='--')
 
     angles_rad = [ np.pi * p / 180 for p in phase.values() ]
 
-    loop_params = zip(angles_rad, amplitude.values(), colors, signal_status.keys())
+    loop_params = zip(angles_rad, amplitude.values(), colors)
 
-    for angle, magnitude, color, status in loop_params:
+    aN = bN = 0
 
-        if signal_status[status] == "Off": 
-            continue
-        
+    for angle, magnitude, color in loop_params:
+
         phasor = ax.quiver(
             0, # X
             0, # Y
@@ -124,22 +153,26 @@ def plot_phasors(row: int, column: int, update = False):
             angles='xy', 
             scale_units='xy', 
             scale=1, 
-            color=color
+            color=color,
+            zorder=3
         )
         
         phasors.append(phasor)
 
-    #     ax.arrow(
-    #         x = angle, 
-    #         y = 0, 
-    #         dx = 0, 
-    #         dy = magnitude * 0.8, 
-    #         head_width = 0.15,
-    #         head_length = magnitude * 0.2,
-    #         facecolor = color, 
-    #         zorder = 5
-    #     )
+        aN += magnitude * np.cos(angle)
+        bN += magnitude * np.sin(angle)
 
+    phasorN = ax.quiver(
+            0, # X
+            0, # Y
+            atan2(bN, aN), # U
+            hypot(aN, bN) , # V
+            angles='xy', 
+            scale_units='xy', 
+            scale=1, 
+            color=colors[-1]
+        )
+        
     canvas_phasors = FigureCanvasTkAgg(fig, master=frame)
 
     canvas_phasors.draw()
@@ -155,7 +188,6 @@ def plot_phasors(row: int, column: int, update = False):
         pady=10
     )
     
-
 
 
 
@@ -208,7 +240,7 @@ def update_amplitude(value: str, clear_entry = True):
         global amplitude
 
         amplitude[phase_id] = float(value)
-        plot_signal(row=10, column=0, update=True)
+        update_signal()
         update_phasor()
 
         if clear_entry: amplitude_entry_value.set("")
@@ -235,7 +267,7 @@ def update_frequency(value, clear_entry = True):
     global frequency
 
     frequency[phase_id] = int(value)
-    plot_signal(row=10, column=0, update=True)
+    update_signal()
 
     if clear_entry: frequency_entry_value.set("")
 
@@ -258,7 +290,7 @@ def update_phase(value: str, clear_entry = True):
     global phase
 
     phase[phase_id] = int(value)
-    plot_signal(row=10, column=0, update=True)
+    update_signal()
     update_phasor()
 
     if clear_entry: phase_entry_value.set("")
@@ -445,7 +477,7 @@ def update_harmonics(value, clear_entry = True, type_changed = False):
         harmonics_order_var.set(harmonics_slider.configure('from')[4])   
         harmonics_order = int(harmonics_order_var.get())  
 
-    plot_signal(row=10, column=0, update=True)
+    update_signal()
 
     # Convert the harmonics to a 1-byte array and append it to the packet
     packet += harmonics_order.to_bytes(1)  
@@ -637,14 +669,17 @@ def signal_on_off_controller(
     row: int,
     column: int,
     id: str
-
 ):
     
     def signal_status_changed(*args):
 
-        signal_status[id] = radio_var.get()
-        plot_signal(row=10, column=0, update=True)
-        plot_phasors(row=10, column=5, update=True)
+        # signal_status[id] = radio_var.get()
+        if radio_var.get() == "Off": 
+            amplitude[int(id[-1])] = 0
+            amplitude_slider.set(0)
+            amplitude_slider.configure(state="disabled")
+        update_signal()
+        update_phasor()
         
         # Create a packet with the command and the signal status
         # 0x53 is the ASCII code for 'S' and 0x4F is the ASCII code for 'O'
@@ -831,21 +866,12 @@ def main():
     global amplitude
     global frequency
     global phase
-    global signal_status
+    global colors
 
     amplitude = { 1: 1, 2: 1, 3: 1 }
     frequency = { 1: 50, 2: 50, 3: 50 }
     phase = { 1: 0, 2: 120, 3: 240 }
-    signal_status = {
-        "u1": "On",
-        "u2": "On",
-        "u3": "On",
-        "un": "On",
-        "i1": "On",
-        "i2": "On",
-        "i3": "On",
-        "in": "On"
-    }
+    colors = ['brown', 'black', 'gray', 'blue']
 
     phase_selector(
         row=0, 
