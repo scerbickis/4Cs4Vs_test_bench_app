@@ -170,7 +170,8 @@ def plot_phasors(row: int, column: int):
             angles='xy', 
             scale_units='xy', 
             scale=1, 
-            color=colors[-1]
+            color=colors[-1],
+            zorder = 3
         )
         
     canvas_phasors = FigureCanvasTkAgg(fig, master=frame)
@@ -540,7 +541,7 @@ def phase_selector(
     option_menu.config(width=4, bg="white", highlightthickness=0)
     option_menu.grid(row=row, column=column + 1, sticky="W", padx=10)
 
-def parameter_controls(
+def pparameter_controls(
         row: int,
         column: int,
         text: str,
@@ -628,6 +629,61 @@ def parameter_controls(
 
     return control_variables
 
+def parameter_controls(
+    frame: tk.Frame,
+    row: int,
+    column: int,
+    label: str,
+    update_function: callable,
+    unit: str,
+    min_value: int,
+    max_value: int,
+    resolution: float|int,
+    default_value: int|float
+):
+    
+    control_variables = {}
+
+    if isinstance(default_value, int):
+        parameter_var = tk.IntVar(value=default_value)
+    elif isinstance(default_value, float):
+        parameter_var = tk.DoubleVar(value=default_value) 
+
+    control_variables["var"] = parameter_var
+
+    parameter_spinbox = tk.Spinbox(
+        frame,
+        from_=min_value,
+        to=max_value,
+        increment=resolution,
+        width=5,
+        textvariable=parameter_var,
+        command=update_function
+    )
+    parameter_spinbox.grid(
+        row=row, 
+        column=column + 1, 
+        sticky="W"
+    )
+
+    control_variables["spinbox"] = parameter_spinbox
+
+    units_label = tk.Label(frame, text=unit)
+    units_label.grid(
+        row = row, 
+        column = column + 2, 
+        sticky = "W",
+        pady=5
+    )
+    units_label.config(font=("Arial", 9), bg="white")
+
+    # parameter_spinbox.bind("<Return>", update_slider)
+    # parameter_spinbox.bind("<FocusOut>", update_slider)
+
+    return control_variables
+
+
+
 def harmonic_type_selector(
     row: int,
     column: int
@@ -678,6 +734,10 @@ def signal_on_off_controller(
             amplitude[int(id[-1])] = 0
             amplitude_slider.set(0)
             amplitude_slider.configure(state="disabled")
+        else:
+            amplitude_slider.configure(state="normal")
+            amplitude_slider.set(1)
+            amplitude[int(id[-1])] = 1
         update_signal()
         update_phasor()
         
@@ -812,6 +872,83 @@ def signal_on_off_controls(
         "iN"
     )
 
+def main_parameters_controls(
+    frame: tk.Frame,
+    start_row: int,
+    start_column: int
+):
+
+    labels = [
+        "Frequency:",
+        "U (Amplitude):",
+        "U (Angle):",
+        "I (Amplitude):",
+        "I (Angle):"
+    ]
+
+    for i, label in enumerate(labels, start=1):
+
+        parameter_label = tk.Label(frame, text=label)
+        parameter_label.grid(
+            row=start_row + i, 
+            column=start_column, 
+            sticky="W", 
+            padx=10, 
+            pady=5
+        )
+        parameter_label.config(font=("Arial", 10, "bold"), bg="white")
+
+    lines = [ "L1", "L2", "L3" ]
+    units = [ "Hz", "V", "°", "A", "°" ]
+    min_values = [ 0, 0, 0, 0, 0 ]
+    max_values = [ 100, 10, 360, 10, 360 ]
+    resolutions = [ 1, 0.01, 1, 0.01, 1 ]
+    default_values = [ 50, 1.0, 0, 1.0, 0 ]
+    update_functions = [ 
+        update_frequency, 
+        update_amplitude, 
+        update_phase, 
+        update_amplitude, 
+        update_phase
+     ]
+    
+    loop_params = list(zip(
+        labels,
+        units,
+        min_values,
+        max_values,
+        resolutions,
+        default_values,
+        update_functions
+    ))
+
+    for c, line in enumerate(lines, start=1):
+
+        parameter_label = tk.Label(frame, text=line)
+        parameter_label.grid(
+            row=start_row, 
+            column=start_column + c, 
+            sticky="W", 
+            padx=10, 
+            pady=5
+        )
+        parameter_label.config(font=("Arial", 10, "bold"), bg="white")
+
+        for r, (label, unit, min_value, max_value, resolution, default_value, update_function) in enumerate(loop_params, start=1):
+
+            parameter_control_variables = parameter_controls(
+                frame=frame,
+                row=start_row + r,
+                column=start_column + c,
+                label=label,
+                update_function=update_function,
+                unit=unit,
+                min_value=min_value,
+                max_value=max_value,
+                resolution=resolution,
+                default_value=default_value
+            )
+
 
 def main():
 
@@ -834,18 +971,22 @@ def main():
     menu(root)
 
     # Create a frame for the GUI
-    frame = tk.Frame(root)
-    frame.pack()
-    frame.bind("<Button-1>", lambda event: frame.focus_set())
-    frame.configure(bg='white')
+    # frame = tk.Frame(root)
+    # frame.pack()
+    # frame.bind("<Button-1>", lambda event: frame.focus_set())
+    # frame.configure(bg='white')
 
-    for i in range(12): 
-        frame.columnconfigure(i, weight=1)
-        frame.rowconfigure(i, weight=1)
+    frame_main_params = tk.Frame(root)
+    frame_main_params.grid(row=0, column=0, padx=10, pady=10)
+    frame_main_params.configure(bg='white')
 
-    frame.columnconfigure(3, minsize=300, weight=1)
-    frame.columnconfigure(4, minsize=100, weight=1)
-    frame.columnconfigure(11, minsize=20, weight=1)
+    # for i in range(12): 
+    #     frame.columnconfigure(i, weight=1)
+    #     frame.rowconfigure(i, weight=1)
+
+    # frame.columnconfigure(3, minsize=300, weight=1)
+    # frame.columnconfigure(4, minsize=100, weight=1)
+    # frame.columnconfigure(11, minsize=20, weight=1)
 
     global rms_label
 
@@ -873,94 +1014,103 @@ def main():
     phase = { 1: 0, 2: 120, 3: 240 }
     colors = ['brown', 'black', 'gray', 'blue']
 
-    phase_selector(
-        row=0, 
-        column=0
-    )
+    # phase_selector(
+    #     row=0, 
+    #     column=0
+    # )
 
-    rms_label = tk.Label(frame, text="RMS: 1.000 V")
-    rms_label.grid(row=1, column=4, sticky="W")
-    rms_label.config(font=("Arial", 9, "bold"), bg="white")
+    # rms_label = tk.Label(frame, text="RMS: 1.000 V")
+    # rms_label.grid(row=1, column=4, sticky="W")
+    # rms_label.config(font=("Arial", 9, "bold"), bg="white")
+
+
+    main_parameters_controls(
+        frame=frame_main_params,
+        start_row=0,
+        start_column=0
+    )
     
-    amplitude_control_variables = parameter_controls(
-        row=1,
-        column=0,
-        text="Amplitude (V):",
-        update_function=update_amplitude,
-        unit="V",
-        slider_min=0,
-        slider_max=10,
-        resolution=0.01,
-        slider_tick=1,
-        default_value=1.0
-    )
 
-    frequency_control_variables = parameter_controls(
-        row=2,
-        column=0,
-        text="Frequency (Hz):",
-        update_function=update_frequency,
-        unit="Hz",
-        slider_min=0,
-        slider_max=100,
-        resolution=1,
-        slider_tick=10,
-        default_value=50
-    )
+    
+    # amplitude_control_variables = parameter_controls(
+    #     row=1,
+    #     column=0,
+    #     text="Amplitude (V):",
+    #     update_function=update_amplitude,
+    #     unit="V",
+    #     slider_min=0,
+    #     slider_max=10,
+    #     resolution=0.01,
+    #     slider_tick=1,
+    #     default_value=1.0
+    # )
 
-    phase_control_variables = parameter_controls(
-        row=3,
-        column=0,
-        text="Phase (°):",
-        update_function=update_phase,
-        unit="°",
-        slider_min=0,
-        slider_max=360,
-        resolution=1,
-        slider_tick=30,
-        default_value=0
-    )
+    # frequency_control_variables = parameter_controls(
+    #     row=2,
+    #     column=0,
+    #     text="Frequency (Hz):",
+    #     update_function=update_frequency,
+    #     unit="Hz",
+    #     slider_min=0,
+    #     slider_max=100,
+    #     resolution=1,
+    #     slider_tick=10,
+    #     default_value=50
+    # )
 
-    harmonic_type_selector(row=5, column=0)
+    # phase_control_variables = parameter_controls(
+    #     row=3,
+    #     column=0,
+    #     text="Phase (°):",
+    #     update_function=update_phase,
+    #     unit="°",
+    #     slider_min=0,
+    #     slider_max=360,
+    #     resolution=1,
+    #     slider_tick=30,
+    #     default_value=0
+    # )
 
-    harmonic_control_variables = parameter_controls(
-        row=6,
-        column=0,
-        text="Harmonics Order:",
-        update_function=update_harmonics,
-        unit="",
-        slider_min=1,
-        slider_max=50,
-        resolution=1,
-        slider_tick=4,
-        default_value=1
-    )
+    # harmonic_type_selector(row=5, column=0)
 
-    signal_on_off_controls(
-        control_signals_start_row = 0, 
-        control_signals_start_column = 12
-    )
+    # harmonic_control_variables = pparameter_controls(
+    #     row=6,
+    #     column=0,
+    #     text="Harmonics Order:",
+    #     update_function=update_harmonics,
+    #     unit="",
+    #     slider_min=1,
+    #     slider_max=50,
+    #     resolution=1,
+    #     slider_tick=4,
+    #     default_value=1
+    # )
 
-    plot_signal(row=10, column=0)
+    # signal_on_off_controls(
+    #     control_signals_start_row = 0, 
+    #     control_signals_start_column = 12
+    # )
 
-    plot_phasors(row=10, column=5)
+    # plot_signal(row=10, column=0)
 
-    amplitude_entry_value = amplitude_control_variables["entry_value"]
-    frequency_entry_value = frequency_control_variables["entry_value"]
-    phase_entry_value = phase_control_variables["entry_value"]
-    harmonic_entry_value = harmonic_control_variables["entry_value"]
+    # plot_phasors(row=10, column=5)
 
-    harmonic_entry = harmonic_control_variables["entry"]
+    # # amplitude_entry_value = amplitude_control_variables["entry_value"]
+    # # frequency_entry_value = frequency_control_variables["entry_value"]
+    # # phase_entry_value = phase_control_variables["entry_value"]
+    # harmonic_entry_value = harmonic_control_variables["entry_value"]
 
-    harmonics_order_var = harmonic_control_variables["var"]
+    # harmonic_entry = harmonic_control_variables["entry"]
 
-    amplitude_slider = amplitude_control_variables["slider"]
-    frequency_slider = frequency_control_variables["slider"]
-    phase_slider = phase_control_variables["slider"]
-    harmonics_slider = harmonic_control_variables["slider"]
+    # harmonics_order_var = harmonic_control_variables["var"]
 
-    harmonic_entry.config(state="disabled")
-    harmonics_slider.configure(state="disabled")
+    # # amplitude_slider = amplitude_control_variables["slider"]
+    # # frequency_slider = frequency_control_variables["slider"]
+    # # phase_slider = phase_control_variables["slider"]
+    # harmonics_slider = harmonic_control_variables["slider"]
+
+    # harmonic_entry.config(state="disabled")
+    # harmonics_slider.configure(state="disabled")
 
     root.protocol("WM_DELETE_WINDOW", on_closing)
     root.mainloop()
