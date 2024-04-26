@@ -10,18 +10,21 @@ const uint8_t SCOPE_10_10 = 0x03; //Diapazono nuo -10V iki 10V nustatymo komando
 
 uint8_t phase_id = 1;// Phase id
 
-uint16_t amplitude[3] = {0x7FFF, 0x7FFF, 0x7FFF};
+uint16_t amplitudeU[3] = {0x7FFF, 0x7FFF, 0x7FFF};
+uint16_t amplitudeI[3] = {0x7FFF, 0x7FFF, 0x7FFF};
 uint16_t tableStep[3] = {266, 266, 266};
-uint16_t phase[3] = {0, (uint16_t) 2 * tableLength/3, (uint16_t) tableLength/3}; // Amplitude, frequency and phase of the each phase
+// Amplitude, frequency and phase of the each phase
+uint16_t phaseU[3] = {0, (uint16_t) 2 * tableLength/3, (uint16_t) tableLength/3}; 
+uint16_t phaseI[3] = {0, (uint16_t) 2 * tableLength/3, (uint16_t) tableLength/3}; 
 uint8_t harmonicOrder = 1; // Harmonic order of the each phase
 char harmonicParity = 'A'; // Harmonic parity of the each phase
 
 float R = 100.0; // Resistance
 bool signal_statuses[8] = {true, true, true, true, true, true, true, true};
 
-uint16_t index1 = phase[0];
-uint16_t index2 = phase[1];
-uint16_t index3 = phase[2];
+uint16_t index1 = phaseU[0];
+uint16_t index2 = phaseU[1];
+uint16_t index3 = phaseU[2];
 
 float sineTable[tableLength] = {0.0}; // Lookup sine table 
 
@@ -58,14 +61,19 @@ void setParameters() {
   uint8_t phaseBuffer[4];
   float phaseFactor;
   uint8_t outputStatus;
+  uint8_t outputType;
 
   uint8_t parameter_id = Serial.read(); // Read the parameter id from the serial port
   phase_id = Serial.read(); // Read the phase id from the serial port01
 
+  // Read the output type from the serial port
+  if (parameter_id == 0x41 || parameter_id == 0x50) outputType = Serial.read(); 
+
   switch(parameter_id){
     
     case 0x41: // 0x41 is Ascii for 'A'. If the parameter id is 0x41, read the amplitude from the serial port
-      amplitude[phase_id - 1] = (Serial.read() << 8) | Serial.read(); // Shift the byte by 8 bits
+      if (outputType == 0x55) amplitudeU[phase_id - 1] = (Serial.read() << 8) | Serial.read(); // Shift the byte by 8 bits
+      else if (outputType == 0x49) amplitudeI[phase_id - 1] = (Serial.read() << 8) | Serial.read(); // Shift the byte by 8 bits
       break;
 
     case 0x46: // 0x46 is Ascii for 'F'. If the parameter id is 0x46, read the step size from the serial port
@@ -73,10 +81,11 @@ void setParameters() {
       break;
 
     case 0x50: // 0x50 is Ascii for 'P'.
-      
+
       for (uint8_t i = 0; i < 4; i++) phaseBuffer[i] = Serial.read();
       memcpy(&phaseFactor, phaseBuffer, sizeof(float));
-      phase[phase_id - 1] = (uint16_t) (phaseFactor * tableLength);
+      if (outputType == 0x55) phaseU[phase_id - 1] = (uint16_t) (phaseFactor * tableLength);
+      else if (outputType == 0x49) phaseI[phase_id - 1] = (uint16_t) (phaseFactor * tableLength);
       break;
 
     case 0x48: // 0x48 is Ascii for 'H'. If the parameter id is 0x48, read the harmonic value from the serial port
@@ -146,28 +155,28 @@ void loop() {
   if (index2 > tableLength) index2 -= tableLength;
   if (index3 > tableLength) index3 -= tableLength;
 
-  uint16_t u1 = (uint16_t) (amplitude[0] * (sineTable[index1] + 1)/2);
+  uint16_t u1 = (uint16_t) (amplitudeU[0] * (sineTable[index1] + 1)/2);
   signal_statuses[0] ? valdytiSAK(WRITE_N_UPDATE_N, 0, u1) : valdytiSAK(WRITE_N_UPDATE_N, 0, 32767);
 
-  uint16_t u2 = (uint16_t) (amplitude[1] * (sineTable[index2] + 1)/2);
+  uint16_t u2 = (uint16_t) (amplitudeU[1] * (sineTable[index2] + 1)/2);
   signal_statuses[1] ? valdytiSAK(WRITE_N_UPDATE_N, 1, u2) : valdytiSAK(WRITE_N_UPDATE_N, 1, 32767);
 
-  uint16_t u3 = (uint16_t) (amplitude[2] * (sineTable[index3] + 1)/2);
+  uint16_t u3 = (uint16_t) (amplitudeU[2] * (sineTable[index3] + 1)/2);
   signal_statuses[2] ? valdytiSAK(WRITE_N_UPDATE_N, 2, u3) : valdytiSAK(WRITE_N_UPDATE_N, 2, 32767);
 
-  uint16_t uN = u1 + u2 + u3 - (amplitude[0] + amplitude[1] + amplitude[2])/3;
+  uint16_t uN = u1 + u2 + u3 - (amplitudeU[0] + amplitudeU[1] + amplitudeU[2])/3;
   signal_statuses[3] ? valdytiSAK(WRITE_N_UPDATE_N, 3, uN) : valdytiSAK(WRITE_N_UPDATE_N, 3, 32767);
 
-  uint16_t i1 = (uint16_t) (amplitude[0] * (sineTable[index1] + 1)/2);
+  uint16_t i1 = (uint16_t) (amplitudeI[0] * (sineTable[index1] + 1)/2);
   signal_statuses[4] ? valdytiSAK(WRITE_N_UPDATE_N, 4, i1) : valdytiSAK(WRITE_N_UPDATE_N, 4, 32767);
 
-  uint16_t i2 = (uint16_t) (amplitude[1] * (sineTable[index2] + 1)/2);
+  uint16_t i2 = (uint16_t) (amplitudeI[1] * (sineTable[index2] + 1)/2);
   signal_statuses[5] ? valdytiSAK(WRITE_N_UPDATE_N, 5, i2) : valdytiSAK(WRITE_N_UPDATE_N, 5, 32767);
 
-  uint16_t i3 = (uint16_t) (amplitude[2] * (sineTable[index3] + 1)/2);
+  uint16_t i3 = (uint16_t) (amplitudeI[2] * (sineTable[index3] + 1)/2);
   signal_statuses[6] ? valdytiSAK(WRITE_N_UPDATE_N, 6, i3) : valdytiSAK(WRITE_N_UPDATE_N, 6, 32767);
 
-  uint16_t iN = i1 + i2 + i3 - (amplitude[0] + amplitude[1] + amplitude[2])/3;
+  uint16_t iN = i1 + i2 + i3 - (amplitudeI[0] + amplitudeI[1] + amplitudeI[2])/3;
   signal_statuses[7] ? valdytiSAK(WRITE_N_UPDATE_N, 7, iN) : valdytiSAK(WRITE_N_UPDATE_N, 7, 32767);
 
 

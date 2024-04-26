@@ -656,28 +656,28 @@ def rms_values(frame: tk.Frame, row: int, column: int):
 
     for i, signal in enumerate(signals.values()):
 
-    for r, unit in enumerate([ "V", "A" ]):
-        for c in range(len(lines)):
-            
-            rms_entry = tk.Entry(frame, width=5)
-            rms_entry.grid(
-                row=row + 6 + r, 
-                column=column + 1 + 2 * c,
-                padx=(0, 20),
-                pady=5
-            )
+        for r, unit in enumerate([ "V", "A" ]):
+            for c in range(len(lines)):
+                
+                rms_entry = tk.Entry(frame, width=5)
+                rms_entry.grid(
+                    row=row + 6 + r, 
+                    column=column + 1 + 2 * c,
+                    padx=(0, 20),
+                    pady=5
+                )
 
-            units_label = tk.Label(frame, text=unit)
-            units_label.grid(
-                row=row + 6 + r, 
-                column=column + 2 + 2 * c, 
-                padx=(0, 20),
-                sticky="W"
-            )
-            units_label.config(font=("Arial", 9), bg="white")
+                units_label = tk.Label(frame, text=unit)
+                units_label.grid(
+                    row=row + 6 + r, 
+                    column=column + 2 + 2 * c, 
+                    padx=(0, 20),
+                    sticky="W"
+                )
+                units_label.config(font=("Arial", 9), bg="white")
 
-            rms_value = np.sqrt(np.mean(np.square(list(signals.values())[(r+1)*c])))
-            rms_entry.insert(0, str(rms_value))
+                rms_value = np.sqrt(np.mean(np.square(list(signals.values())[(r+1)*c])))
+                rms_entry.insert(0, str(rms_value))
 
     
 
