@@ -10,7 +10,7 @@ from math import sqrt, hypot, atan2
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 
-def round_half_up(float_number: float, precision: int = 0) -> int:
+def round_half_up(float_number: float, precision: int = 0) -> float:
 
     factor = 10.0 ** precision
     if float_number >= 0:
@@ -296,9 +296,9 @@ def update(value: str, parameter_id: int, type: str, phase_id: int, type_changed
 
     match parameter_id:
         case 0x41:
-            amplitude[signal_id] = int(value)
+            amplitude[signal_id] = float(value)
             update_rms_values()
-            packet += int(round_half_up(float(value) / 400 * 65535)).to_bytes(2)    
+            packet += int(round_half_up(float(value) * 6553.5 )).to_bytes(2)    
             logging.info(
                 f"Packet: {packet.hex('|')} "
                 f"– Amplitude: {value} {units} – RMS: ? {units}"
@@ -332,7 +332,7 @@ def update(value: str, parameter_id: int, type: str, phase_id: int, type_changed
                     harmonic_spinbox.configure(
                         from_ = 1,
                         to = 50,
-                        resolution = 1,
+                        increment = 1,
                         state = "disabled",
                         cursor = "arrow"
                     )
@@ -444,6 +444,7 @@ def update(value: str, parameter_id: int, type: str, phase_id: int, type_changed
                 harmonics_order_var.set(int(harmonic_spinbox.configure('from')[4]))   
                 harmonics_order = int(harmonics_order_var.get())  
 
+            update_rms_values()
             packet += harmonics_order.to_bytes(1)
             logging.info(
                 f"Packet: {packet.hex('|')} "
@@ -473,7 +474,14 @@ def parameter_controls(
     
     def update_spinbox(*args):
         try:
-            update_function(parameter_var.get(), parameter_id, type, phase_id)
+            new_value = parameter_var.get()
+            if new_value > max_value: 
+                parameter_var.set(max_value)
+                new_value = max_value
+            elif new_value < min_value:
+                parameter_var.set(min_value)
+                new_value = min_value
+            update_function(new_value, parameter_id, type, phase_id)
         except ValueError as e:
             logging.error(e)
     
@@ -630,12 +638,12 @@ def main_parameters_controls(
     
     units = [ "Hz", "V", "°", "A", "°" ]
     min_values = [ 0, 0, 0, 0, 0 ]
-    max_values = [ 100, 400, 360, 20, 360 ]
-    resolutions = [ 1, 1, 1, 0.1, 1 ]
+    max_values = [ 100, 10, 360, 10, 360 ]
+    resolutions = [ 1, 10 / 65535, 1, 10 / 65535, 1 ]
     default_values = [
-        [ 50, 230, 0, 1, 0 ],
-        [ 50, 230, 120, 1, 120 ],
-        [ 50, 230, 240, 1, 240 ]
+        [ 50, 5.0, 0, 1.0, 0 ],
+        [ 50, 5.0, 120, 1.0, 120 ],
+        [ 50, 5.0, 240, 1.0, 240 ]
     ]
     update_functions = [ 
         update, 
@@ -690,7 +698,8 @@ def main_parameters_controls(
                 phase_id=c + 1
             )
 
-    rms_values(frame, start_row, start_column)  
+    rms_measurements(frame, start_row + 6, start_column)  
+    power_measurements(frame, start_row + 8, start_column)
 
 def get_rms(signal) -> float:
 
@@ -700,14 +709,16 @@ def update_rms_values():
 
     calculate_signals()
 
-    for i, signal in enumerate(signals.values()):
+    for i, signal_name, signal in enumerate(signals.items()):
 
-        rms_value = get_rms(signal)
-        rms_value = round_half_up(rms_value, precision=2)
+        rms_values[signal_name] = get_rms(signal)
+        rms_value_to_show = round_half_up(rms_values[signal_name], precision=2)
         rms_entries[i].delete(0, tk.END)
-        rms_entries[i].insert(0, str(rms_value))
+        rms_entries[i].insert(0, str(rms_value_to_show))
+    
+    update_power_values()
 
-def rms_values(frame: tk.Frame, row: int, column: int):
+def rms_measurements(frame: tk.Frame, row: int, column: int):
 
     i = 0
 
@@ -716,7 +727,7 @@ def rms_values(frame: tk.Frame, row: int, column: int):
             
             rms_entry = tk.Entry(frame, width=7)
             rms_entry.grid(
-                row=row + 6 + r, 
+                row=row + r, 
                 column=column + 1 + 2 * c,
                 padx=(0, 20),
                 pady=5
@@ -724,22 +735,82 @@ def rms_values(frame: tk.Frame, row: int, column: int):
 
             units_label = tk.Label(frame, text=unit)
             units_label.grid(
-                row=row + 6 + r, 
+                row=row + r, 
                 column=column + 2 + 2 * c, 
                 padx=(0, 20),
                 sticky="W"
             )
             units_label.config(font=("Arial", 9), bg="white")
             
-            rms_value = get_rms(list(signals.values())[i])
-            rms_value = round_half_up(rms_value, precision=2)
-            rms_entry.insert(0, str(rms_value))
+            rms_values[list(signals.keys())[i]] = get_rms(list(signals.values())[i])
+            rms_value_to_show = round_half_up(rms_values[list(signals.keys())[i]], precision=2)
+            rms_entry.insert(0, str(rms_value_to_show))
 
             rms_entries.append(rms_entry)
 
             i+=1
 
- 
+def power_measurements(frame: tk.Frame, row: int, column: int):
+
+    labels = [
+        "Active Power (W):",
+        "Reactive Power (VAR):",
+        "Apparent Power (VA):",
+        "Power Factor:"
+    ]
+
+    for i, label in enumerate(labels, start=1):
+
+        parameter_label = tk.Label(frame, text=label)
+        parameter_label.grid(
+            row=row + i, 
+            column=column, 
+            sticky="W", 
+            padx=(5, 15), 
+            pady=5
+        )
+        parameter_label.config(font=("Arial", 10, "bold"), bg="white")
+
+    for c, line in enumerate(lines):
+
+        for r, label in enumerate(labels):
+
+            parameter_entry = tk.Entry(frame, width=7)
+            parameter_entry.grid(
+                row=row + r + 1, 
+                column=column + 1 + 2 * c,
+                padx=(0, 20),
+                pady=5
+            )
+            power_entries.append(parameter_entry)
+    
+    update_power_values()
+    
+def update_power_values():
+
+    indexes = ["1", "2", "3", "N"]
+
+    for i in indexes:
+
+        phase_difference = phase_angle["u" + i] - phase_angle["i" + i]
+        powers["p" + i] = rms_values["u" + i] * rms_values["i" + i] * np.cos(phase_difference)
+        powers["q" + i] = rms_values["u" + i] * rms_values["i" + i] * np.sin(phase_difference)
+        powers["s" + i] = rms_values["u" + i] * rms_values["i" + i]
+        powers["pf" + i] = powers["p" + i] / powers["s" + i]
+        powers["p"] += powers["p" + i]
+        powers["q"] += powers["q" + i]
+        powers["s"] += powers["s" + i]
+
+    powers["pf"] = powers["p"] / powers["s"]
+
+    for entry, power_value in zip(power_entries, powers.values()):
+            
+        power_value = round_half_up(power_value, precision=2)
+        entry.delete(0, tk.END)
+        entry.insert(0, str(power_value))
+
+
+
 
 def main():
 
@@ -753,7 +824,8 @@ def main():
     global phase_angle
     global colors, lines
 
-    global rms, rms_entries
+    global rms_values, rms_entries
+    global powers, power_entries
 
 
     def on_closing():
@@ -796,9 +868,9 @@ def main():
     frame_phasor_plot.configure(bg='white')
 
     amplitude = { 
-        "u1": 230,
-        "u2": 230,
-        "u3": 230,
+        "u1": 5,
+        "u2": 5,
+        "u3": 5,
         "uN": 0,
         "i1": 1,
         "i2": 1,
@@ -806,7 +878,7 @@ def main():
         "iN": 0
     }
     
-    rms = {
+    rms_values = {
         "u1": 0,
         "u2": 0,
         "u3": 0,
@@ -817,7 +889,31 @@ def main():
         "iN": 0
     }
 
+    powers = {
+        "p": 0,
+        "q": 0,
+        "s": 0,
+        "pf": 0,
+        "p1": 0,
+        "q1": 0,
+        "s1": 0,
+        "pf1": 0,
+        "p2": 0,
+        "q2": 0,
+        "s2": 0,
+        "pf2": 0,
+        "p3": 0,
+        "q3": 0,
+        "s3": 0,
+        "pf3": 0,
+        "pN": 0,
+        "qN": 0,
+        "sN": 0,
+        "pfN": 0
+    }
+
     rms_entries = []
+    power_entries = []
 
     frequency = { 1: 50, 2: 50, 3: 50 }
 
