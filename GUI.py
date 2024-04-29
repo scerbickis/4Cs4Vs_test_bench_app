@@ -291,10 +291,13 @@ def update(value: str, parameter_id: int, type: str, phase_id: int, type_changed
     elif type == "I":
         packet += bytes([0x49]) # ASCII code for 'I'
         units = "A"
+    
+    signal_id = f"{type.casefold()}{phase_id}"
 
     match parameter_id:
         case 0x41:
-            amplitude[f"{type.casefold()}{phase_id}"] = int(value)
+            amplitude[signal_id] = int(value)
+            update_rms_values()
             packet += int(round_half_up(float(value) / 400 * 65535)).to_bytes(2)    
             logging.info(
                 f"Packet: {packet.hex('|')} "
@@ -302,13 +305,15 @@ def update(value: str, parameter_id: int, type: str, phase_id: int, type_changed
             )
         case 0x46:
             frequency[phase_id] = int(value)
+            update_rms_values()
             packet += int(round_half_up(float(value) * 5.32)).to_bytes(2)
             logging.info(
                 f"Packet: {packet.hex('|')} "
                 f"– Frequency: {value} Hz"
             )
         case 0x50:
-            phase_angle[f"{type.casefold()}{phase_id}"] = int(value)
+            phase_angle[signal_id] = int(value)
+            update_rms_values()
             packet += struct.pack('>f', int(value)/360)
             logging.info(
                 f"Packet: {packet.hex('|')} "
@@ -445,9 +450,6 @@ def update(value: str, parameter_id: int, type: str, phase_id: int, type_changed
                 f"– Harmonics: {harmonics_order}"
             )
     
-    
-
-    calculate_signals()
     update_signal()
     update_phasor()
 
@@ -558,7 +560,44 @@ def harmonic_type_selector(
 
     option_menu = tk.OptionMenu(frame, harmonics_type_var, *harmonics_options)
     option_menu.config(width=17, bg="white", highlightthickness=0)
-    option_menu.grid(row=row, column=column + 3, sticky="W", padx=10)
+    option_menu.grid(row=row, column=column + 2, sticky="W", padx=10)
+
+def iomod_settings(frame: tk.Frame, row: int, column: int):
+
+    params = {
+        "Primary Current (A):": 100,
+        "Primary Voltage (V):": 10000,
+        "Current sensor (mV):": 225,
+        "Voltage sensor (V):": 1.876
+    }
+
+    for r, (label, value) in enumerate(params.items()):
+
+        if r > 1:
+            column = 2
+            r -= 2
+
+        parameter_label = tk.Label(frame, text=label)
+        parameter_label.grid(
+            row=row + r, 
+            column=column, 
+            sticky="W", 
+            padx=(5, 15), 
+            pady=5
+        )
+        parameter_label.config(font=("Arial", 10, "bold"), bg="white")
+
+        parameter_entry = tk.Entry(frame, width=7)
+        parameter_entry.grid(
+            row=row + r, 
+            column=column + 1, 
+            padx=(0, 20), 
+            pady=5
+        )
+        parameter_entry.insert(0, str(value))
+
+    
+
 
 def main_parameters_controls(
     frame: tk.Frame,
@@ -653,6 +692,21 @@ def main_parameters_controls(
 
     rms_values(frame, start_row, start_column)  
 
+def get_rms(signal) -> float:
+
+    return np.sqrt(np.mean(np.square(signal)))
+
+def update_rms_values():
+
+    calculate_signals()
+
+    for i, signal in enumerate(signals.values()):
+
+        rms_value = get_rms(signal)
+        rms_value = round_half_up(rms_value, precision=2)
+        rms_entries[i].delete(0, tk.END)
+        rms_entries[i].insert(0, str(rms_value))
+
 def rms_values(frame: tk.Frame, row: int, column: int):
 
     i = 0
@@ -676,16 +730,12 @@ def rms_values(frame: tk.Frame, row: int, column: int):
                 sticky="W"
             )
             units_label.config(font=("Arial", 9), bg="white")
-
-            rms_value = np.sqrt(
-                np.mean(
-                    np.square(
-                        list(signals.values())[i]
-                    )
-                )
-            )
+            
+            rms_value = get_rms(list(signals.values())[i])
             rms_value = round_half_up(rms_value, precision=2)
             rms_entry.insert(0, str(rms_value))
+
+            rms_entries.append(rms_entry)
 
             i+=1
 
@@ -703,6 +753,9 @@ def main():
     global phase_angle
     global colors, lines
 
+    global rms, rms_entries
+
+
     def on_closing():
         plt.close('all')
         root.destroy()
@@ -719,13 +772,18 @@ def main():
     
     menu(root)
 
+    frame_iomod_settings = tk.Frame(root)
+    frame_iomod_settings.grid(row=0, column=0, padx=10, pady=10)
+    frame_iomod_settings.bind("<Button-1>", lambda event: frame_iomod_settings.focus_set())
+    frame_iomod_settings.configure(bg='white')
+
     frame_main_params = tk.Frame(root)
-    frame_main_params.grid(row=0, column=0, padx=10, pady=10)
+    frame_main_params.grid(row=1, column=0, padx=10, pady=10)
     frame_main_params.bind("<Button-1>", lambda event: frame_main_params.focus_set())
     frame_main_params.configure(bg='white')
 
     frame_harmonics = tk.Frame(root)
-    frame_harmonics.grid(row=1, column=0, padx=10, pady=10)
+    frame_harmonics.grid(row=2, column=0, padx=10, pady=10)
     frame_harmonics.bind("<Button-1>", lambda event: frame_harmonics.focus_set())
     frame_harmonics.configure(bg='white')
 
@@ -748,6 +806,19 @@ def main():
         "iN": 0
     }
     
+    rms = {
+        "u1": 0,
+        "u2": 0,
+        "u3": 0,
+        "uN": 0,
+        "i1": 0,
+        "i2": 0,
+        "i3": 0,
+        "iN": 0
+    }
+
+    rms_entries = []
+
     frequency = { 1: 50, 2: 50, 3: 50 }
 
     phase_angle = { 
@@ -768,7 +839,7 @@ def main():
     harmonic_control_variables = parameter_controls(
         frame_harmonics,
         row=0,
-        column=1,
+        column=3,
         update_function=update,
         unit="",
         min_value=1,
@@ -780,6 +851,8 @@ def main():
     )
 
     calculate_signals() 
+
+    iomod_settings(frame_iomod_settings, row=0, column=0)
     
     main_parameters_controls(
         frame=frame_main_params,
