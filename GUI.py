@@ -10,14 +10,19 @@ from math import sqrt, hypot, atan2
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 
-def round_half_up(float_number: float) -> int:
+def round_half_up(float_number: float, precision: int = 0) -> int:
 
-    if float_number >= 0: return int(float_number + 0.5)
-    else: return int(float_number - 0.5)
+    factor = 10.0 ** precision
+    if float_number >= 0:
+        return int(float_number * factor + 0.5) / factor
+    else:
+        return int(float_number * factor - 0.5) / factor
 
 def update_signal():
 
-    if "harmonic_spinbox" not in globals(): return
+    if "harmonic_spinbox" not in globals() or\
+        "signal_plots_U" not in globals(): 
+            return
 
     signals_U = itertools.islice(signals.values(), 4)
 
@@ -264,15 +269,11 @@ def menu(root: tk.Tk):
         label="I(t)"
     )
     graphs_menu.add_command(
-        label="Phasor (U)",
+        label="Phasors",
         command=lambda: plot_phasors(frame_phasor_plot, row=0, column=0)
-    )
-    graphs_menu.add_command(
-        label="Phasor (I)"
     )
 
     menubar.add_cascade(label="Connect to Test Bench", menu=comport_menu)
-    menubar.add_cascade(label="Connect to Meter", menu=comport_menu)
     menubar.add_cascade(label="Graphs", menu=graphs_menu)
 
 
@@ -294,14 +295,14 @@ def update(value: str, parameter_id: int, type: str, phase_id: int, type_changed
     match parameter_id:
         case 0x41:
             amplitude[f"{type.casefold()}{phase_id}"] = int(value)
-            packet += round_half_up(float(value) / 400 * 65535).to_bytes(2)    
+            packet += int(round_half_up(float(value) / 400 * 65535)).to_bytes(2)    
             logging.info(
                 f"Packet: {packet.hex('|')} "
                 f"– Amplitude: {value} {units} – RMS: ? {units}"
             )
         case 0x46:
             frequency[phase_id] = int(value)
-            packet += round_half_up(float(value) * 5.32).to_bytes(2)
+            packet += int(round_half_up(float(value) * 5.32)).to_bytes(2)
             logging.info(
                 f"Packet: {packet.hex('|')} "
                 f"– Frequency: {value} Hz"
@@ -654,32 +655,41 @@ def main_parameters_controls(
 
 def rms_values(frame: tk.Frame, row: int, column: int):
 
-    for i, signal in enumerate(signals.values()):
+    i = 0
 
-        for r, unit in enumerate([ "V", "A" ]):
-            for c in range(len(lines)):
-                
-                rms_entry = tk.Entry(frame, width=5)
-                rms_entry.grid(
-                    row=row + 6 + r, 
-                    column=column + 1 + 2 * c,
-                    padx=(0, 20),
-                    pady=5
+    for r, unit in enumerate([ "V", "A" ]):
+        for c in range(len(lines)):
+            
+            rms_entry = tk.Entry(frame, width=7)
+            rms_entry.grid(
+                row=row + 6 + r, 
+                column=column + 1 + 2 * c,
+                padx=(0, 20),
+                pady=5
+            )
+
+            units_label = tk.Label(frame, text=unit)
+            units_label.grid(
+                row=row + 6 + r, 
+                column=column + 2 + 2 * c, 
+                padx=(0, 20),
+                sticky="W"
+            )
+            units_label.config(font=("Arial", 9), bg="white")
+
+            rms_value = np.sqrt(
+                np.mean(
+                    np.square(
+                        list(signals.values())[i]
+                    )
                 )
+            )
+            rms_value = round_half_up(rms_value, precision=2)
+            rms_entry.insert(0, str(rms_value))
 
-                units_label = tk.Label(frame, text=unit)
-                units_label.grid(
-                    row=row + 6 + r, 
-                    column=column + 2 + 2 * c, 
-                    padx=(0, 20),
-                    sticky="W"
-                )
-                units_label.config(font=("Arial", 9), bg="white")
+            i+=1
 
-                rms_value = np.sqrt(np.mean(np.square(list(signals.values())[(r+1)*c])))
-                rms_entry.insert(0, str(rms_value))
-
-    
+ 
 
 def main():
 
@@ -731,9 +741,11 @@ def main():
         "u1": 230,
         "u2": 230,
         "u3": 230,
+        "uN": 0,
         "i1": 1,
         "i2": 1,
-        "i3": 1
+        "i3": 1,
+        "iN": 0
     }
     
     frequency = { 1: 50, 2: 50, 3: 50 }
@@ -742,9 +754,11 @@ def main():
         "u1": 0,
         "u2": 120,
         "u3": 240,
+        "uN": 0,
         "i1": 0,
         "i2": 120,
-        "i3": 240
+        "i3": 240,
+        "iN": 0
      }
     colors = ['brown', 'black', 'gray', 'blue']
     lines = [ "L1", "L2", "L3", "N" ]
