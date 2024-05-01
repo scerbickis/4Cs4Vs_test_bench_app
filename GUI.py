@@ -40,7 +40,7 @@ def plot_time_graph(frame: tk.Frame, row: int, column: int):
     # Create a figure and a subplot
     fig, ax = plt.subplots()
     fig.set_size_inches(6, 4)
-    ax.set_ylim(-300, 300)
+    ax.set_ylim(-10, 10)
     ax.set_ylabel("Amplitude (V Pk-Pk)")
     ax.set_xlabel("Time (ms)")
     ax.grid(linewidth=0.5, color='lightgray', linestyle='--')
@@ -113,7 +113,7 @@ def plot_phasors(frame: tk.Frame, row: int, column: int):
 
     fig, ax = plt.subplots(subplot_kw={'projection': 'polar'})
     ax.set_ylim(0, 10)
-    ax.set_rticks([i for i in range(0, 401, 100)])
+    # ax.set_rticks([i for i in range(0, 401, 100)])
     ax.set_xticks(np.linspace(0, 2*np.pi, 12, endpoint=False))
     ax.grid(linewidth=0.5, color='lightgray', linestyle='--')
 
@@ -639,7 +639,7 @@ def main_parameters_controls(
     units = [ "Hz", "V", "°", "A", "°" ]
     min_values = [ 0, 0, 0, 0, 0 ]
     max_values = [ 100, 10, 360, 10, 360 ]
-    resolutions = [ 1, 10 / 65535, 1, 10 / 65535, 1 ]
+    resolutions = [ 1, 0.01, 1, 0.01, 1 ]
     default_values = [
         [ 50, 5.0, 0, 1.0, 0 ],
         [ 50, 5.0, 120, 1.0, 120 ],
@@ -709,7 +709,7 @@ def update_rms_values():
 
     calculate_signals()
 
-    for i, signal_name, signal in enumerate(signals.items()):
+    for i, (signal_name, signal) in enumerate(signals.items()):
 
         rms_values[signal_name] = get_rms(signal)
         rms_value_to_show = round_half_up(rms_values[signal_name], precision=2)
