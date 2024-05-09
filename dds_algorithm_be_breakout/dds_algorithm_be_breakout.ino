@@ -63,66 +63,105 @@ void setParameters() {
   uint8_t outputStatus;
   uint8_t outputType;
 
-  uint8_t parameter_id = Serial.read(); // Read the parameter id from the serial port
-  phase_id = Serial.read(); // Read the phase id from the serial port01
+  // Read the parameter id from the serial port
+  uint8_t parameter_id = Serial.read(); 
+  // Read the phase id from the serial port01
+  phase_id = Serial.read(); 
 
   // Read the output type from the serial port
-  if (parameter_id == 0x41 || parameter_id == 0x50) outputType = Serial.read(); 
+  if (parameter_id == 0x41 || parameter_id == 0x50) {
+    outputType = Serial.read(); 
+  }
 
   switch(parameter_id){
     
-    case 0x41: // 0x41 is Ascii for 'A'. If the parameter id is 0x41, read the amplitude from the serial port
-      if (outputType == 0x55) amplitudeU[phase_id - 1] = (Serial.read() << 8) | Serial.read(); // Shift the byte by 8 bits
-      else if (outputType == 0x49) amplitudeI[phase_id - 1] = (Serial.read() << 8) | Serial.read(); // Shift the byte by 8 bits
+    // 0x41 is Ascii for 'A'. 
+    // If the parameter id is 0x41, read the amplitude from the serial port
+    case 0x41: 
+      // Shift the byte by 8 bits
+      if (outputType == 0x55) {
+        amplitudeU[phase_id - 1] = (Serial.read() << 8) | Serial.read();
+      } 
+      // Shift the byte by 8 bits
+      else if (outputType == 0x49) {
+        amplitudeI[phase_id - 1] = (Serial.read() << 8) | Serial.read(); 
+      }
       break;
 
-    case 0x46: // 0x46 is Ascii for 'F'. If the parameter id is 0x46, read the step size from the serial port
-      tableStep[phase_id - 1] = (Serial.read() << 8) | Serial.read(); // Shift the byte by 8 bits
+    // 0x46 is Ascii for 'F'.
+    // If the parameter id is 0x46, read the step size from the serial port
+    case 0x46: 
+      // Shift the byte by 8 bits
+      tableStep[phase_id - 1] = (Serial.read() << 8) | Serial.read(); 
       break;
 
-    case 0x50: // 0x50 is Ascii for 'P'.
+    // 0x50 is Ascii for 'P'.
+    case 0x50: 
 
       for (uint8_t i = 0; i < 4; i++) phaseBuffer[i] = Serial.read();
       memcpy(&phaseFactor, phaseBuffer, sizeof(float));
-      if (outputType == 0x55) phaseU[phase_id - 1] = (uint16_t) (phaseFactor * tableLength);
-      else if (outputType == 0x49) phaseI[phase_id - 1] = (uint16_t) (phaseFactor * tableLength);
+      
+      if (outputType == 0x55) {
+        phaseU[phase_id - 1] = (uint16_t) (phaseFactor * tableLength);
+      }
+      
+      else if (outputType == 0x49) {
+        phaseI[phase_id - 1] = (uint16_t) (phaseFactor * tableLength);
+      }
+      
       break;
 
-    case 0x48: // 0x48 is Ascii for 'H'. If the parameter id is 0x48, read the harmonic value from the serial port
-      harmonicParity = Serial.read(); // Read the harmonic parity from the serial port
-      harmonicOrder = Serial.read(); // Read the harmonic order from the serial port
+    // 0x48 is Ascii for 'H'.
+    // If the parameter id is 0x48, read the harmonic value from the serial port
+    case 0x48: 
+      
+      // Read the harmonic parity from the serial port
+      harmonicParity = Serial.read(); 
+      // Read the harmonic order from the serial port
+      harmonicOrder = Serial.read(); 
       if (harmonicOrder == 0) harmonicOrder = 1;
       calculateSineTable();
+      
       break;
 
-    case 0x4F: // 0x4F is Ascii for 'O'.
-      outputStatus = Serial.read(); // Read the output status and address from the serial port
-      signal_statuses[outputStatus & 0x0F] = (outputStatus & 0xF0) >> 4; // Read the signal status from the serial port
+    // 0x4F is Ascii for 'O'.
+    case 0x4F: 
+      
+      // Read the output status and address from the serial port
+      outputStatus = Serial.read(); 
+      // Read the signal status from the serial port
+      signal_statuses[outputStatus & 0x0F] = (outputStatus & 0xF0) >> 4; 
+      
       break;
 
-    case 0x52: // 0x52 is Ascii for 'R'.
-      break;  
-
-    default: // If the parameter id is not 0x46 or 0x41, break the switch statement
+    // If the parameter id is not 0x46 or 0x41, break the switch statement
+    default: 
       break;
   }
 
 }
 
 void valdytiSAK(uint8_t komanda, uint8_t adresas, uint16_t duomenys) {
+  
   /*Ši funkcija naudojama SAK valdymui per SPI sąsają*/
   SPI.beginTransaction(SPISettings(30e6, MSBFIRST, SPI_MODE0));
-
-  digitalWrite(PIN_SPI_SS, LOW); /*Pradedamas duomenų perdavimas su SAK'u, nustatant Lusto Pasirinkimo kaiščio
-                                        išėjimo įtampos lygį į žemą*/
+  /*Pradedamas duomenų perdavimas su SAK'u, 
+  nustatant Lusto Pasirinkimo kaiščio
+  išėjimo įtampos lygį į žemą*/
+  digitalWrite(PIN_SPI_SS, LOW); 
 
   /*Atliekant komandinio baito loginį poslinkį keturiais bitais į kaire
-  ir atliekant loginį sumavimą su adreso baitu, sukuriamas paketo antraštės baitas*/
-  SPI.transfer((komanda << 4) | adresas); // Antraštės baito siuntimas   
-  SPI.transfer16(duomenys); // Dviejų baitų duomenų siuntimas 
+  ir atliekant loginį sumavimą su adreso baitu, 
+  sukuriamas paketo antraštės baitas*/
+  // Antraštės baito siuntimas   
+  SPI.transfer((komanda << 4) | adresas); 
+  // Dviejų baitų duomenų siuntimas 
+  SPI.transfer16(duomenys); 
 
-  digitalWrite(PIN_SPI_SS, HIGH); /*Baigiamas duomenų perdavimas su SAK'u, nustatant Lusto Pasirinkimo kaiščio
-                                        išėjimo įtampos lygį į aukštą*/
+  /*Baigiamas duomenų perdavimas su SAK'u, 
+  nustatant Lusto Pasirinkimo kaiščio
+  išėjimo įtampos lygį į aukštą*/
+  digitalWrite(PIN_SPI_SS, HIGH); 
 
   SPI.endTransaction(); //Baigiamas SPI perdavimas
 
@@ -135,20 +174,23 @@ void setup() {
   
   calculateSineTable();
   
-  pinMode(PIN_SPI_SS, OUTPUT); //Lusto išrinkimo kaištis nustatomas į išvesties režimą
+  //Lusto išrinkimo kaištis nustatomas į išvesties režimą
+  pinMode(PIN_SPI_SS, OUTPUT); 
   digitalWrite(PIN_SPI_SS, HIGH);
 
   SPI.begin(); //Inicializuojama SPI magistralė
   
-  valdytiSAK(WRITE_ALL, 0, SCOPE_10_10); //Visų SAK išėjimų diapazonų nustatymo komanda
+  //Visų SAK išėjimų diapazonų nustatymo komanda
+  valdytiSAK(WRITE_ALL, 0, SCOPE_10_10); 
 
 }
 
 void loop() {
 
-
-  if (Serial.available() > 0) { // if there is data available on the serial port
-    if (Serial.read() == 0x53) setParameters(); // if the received byte is 0x53, call the setup function
+  // if there is data available in the serial input buffer
+  if (Serial.available() > 0) { 
+    // if the received byte is 0x53, call the setup function
+    if (Serial.read() == 0x53) setParameters(); 
   }
 
   if (index1 > tableLength) index1 -= tableLength;
