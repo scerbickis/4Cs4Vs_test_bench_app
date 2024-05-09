@@ -10,21 +10,22 @@ const uint8_t SCOPE_10_10 = 0x03; //Diapazono nuo -10V iki 10V nustatymo komando
 
 uint8_t phase_id = 1;// Phase id
 
-uint16_t amplitudeU[3] = {0x7FFF, 0x7FFF, 0x7FFF};
-uint16_t amplitudeI[3] = {0x7FFF, 0x7FFF, 0x7FFF};
-uint16_t tableStep[3] = {266, 266, 266};
+uint16_t amplitudeU[3] = { 0x3FFF };
+uint16_t amplitudeI[3] = { 0x3FFF };
+uint16_t DCComponentU[3] = { 0x7FFF };
+uint16_t DCComponentI[3] = { 0x7FFF };
+uint16_t tableStep[3] = { 266 };
 // Amplitude, frequency and phase of the each phase
 uint16_t phaseU[3] = {0, (uint16_t) 2 * tableLength/3, (uint16_t) tableLength/3}; 
 uint16_t phaseI[3] = {0, (uint16_t) 2 * tableLength/3, (uint16_t) tableLength/3}; 
 uint8_t harmonicOrder = 1; // Harmonic order of the each phase
 char harmonicParity = 'A'; // Harmonic parity of the each phase
 
-float R = 100.0; // Resistance
-bool signal_statuses[8] = {true, true, true, true, true, true, true, true};
+bool signal_statuses[8] = { true };
 
-uint16_t index1 = phaseU[0];
-uint16_t index2 = phaseU[1];
-uint16_t index3 = phaseU[2];
+// Index of the sine table for each phase
+uint16_t indexU[3] = {0}; 
+uint16_t indexI[3] = {0}; 
 
 float sineTable[tableLength] = {0.0}; // Lookup sine table 
 
@@ -193,37 +194,36 @@ void loop() {
     if (Serial.read() == 0x53) setParameters(); 
   }
 
-  if (index1 > tableLength) index1 -= tableLength;
-  if (index2 > tableLength) index2 -= tableLength;
-  if (index3 > tableLength) index3 -= tableLength;
+  for (uint8_t i = 0; i < 3; i++) {
+    indexU[i] = phaseU[i] + tableStep[i];
+    if (indexU[i] > tableLength) indexU[i] -= tableLength;
+    indexI[i] = phaseI[i] + tableStep[i];
+    if (indexI[i + 3] > tableLength) indexI[i + 3] -= tableLength;
+  }
 
-  uint16_t u1 = (uint16_t) (amplitudeU[0] * (sineTable[index1] + 1)/2);
-  signal_statuses[0] ? valdytiSAK(WRITE_N_UPDATE_N, 0, u1) : valdytiSAK(WRITE_N_UPDATE_N, 0, 32767);
+  uint16_t u1 = (uint16_t) (DCComponentU[0] + amplitudeU[0] * sineTable[indexU[0]]);
+  valdytiSAK(WRITE_N_UPDATE_N, 0, u1);
 
-  uint16_t u2 = (uint16_t) (amplitudeU[1] * (sineTable[index2] + 1)/2);
-  signal_statuses[1] ? valdytiSAK(WRITE_N_UPDATE_N, 1, u2) : valdytiSAK(WRITE_N_UPDATE_N, 1, 32767);
+  uint16_t u2 = (uint16_t) (DCComponentU[1] + amplitudeU[1] * sineTable[indexU[1]]);
+  valdytiSAK(WRITE_N_UPDATE_N, 1, u2);
 
-  uint16_t u3 = (uint16_t) (amplitudeU[2] * (sineTable[index3] + 1)/2);
-  signal_statuses[2] ? valdytiSAK(WRITE_N_UPDATE_N, 2, u3) : valdytiSAK(WRITE_N_UPDATE_N, 2, 32767);
+  uint16_t u3 = (uint16_t) (DCComponentU[2] + amplitudeU[2] * sineTable[indexU[2]]);
+  valdytiSAK(WRITE_N_UPDATE_N, 2, u3);
 
-  uint16_t uN = u1 + u2 + u3 - (amplitudeU[0] + amplitudeU[1] + amplitudeU[2])/3;
-  signal_statuses[3] ? valdytiSAK(WRITE_N_UPDATE_N, 3, uN) : valdytiSAK(WRITE_N_UPDATE_N, 3, 32767);
+  uint16_t uN = 0x7FFF + u1 - DCComponentU[0] + u2 - DCComponentU[1] + u3 - DCComponentU[2];
+  valdytiSAK(WRITE_N_UPDATE_N, 3, uN);
 
-  uint16_t i1 = (uint16_t) (amplitudeI[0] * (sineTable[index1] + 1)/2);
-  signal_statuses[4] ? valdytiSAK(WRITE_N_UPDATE_N, 4, i1) : valdytiSAK(WRITE_N_UPDATE_N, 4, 32767);
+  uint16_t i1 = (uint16_t) (DCComponentI[0] + amplitudeI[0] * sineTable[indexI[0]]);
+  valdytiSAK(WRITE_N_UPDATE_N, 4, i1);
 
-  uint16_t i2 = (uint16_t) (amplitudeI[1] * (sineTable[index2] + 1)/2);
-  signal_statuses[5] ? valdytiSAK(WRITE_N_UPDATE_N, 5, i2) : valdytiSAK(WRITE_N_UPDATE_N, 5, 32767);
+  uint16_t i2 = (uint16_t) (DCComponentI[1] + amplitudeI[1] * sineTable[indexI[1]]);
+  valdytiSAK(WRITE_N_UPDATE_N, 5, i2);
 
-  uint16_t i3 = (uint16_t) (amplitudeI[2] * (sineTable[index3] + 1)/2);
-  signal_statuses[6] ? valdytiSAK(WRITE_N_UPDATE_N, 6, i3) : valdytiSAK(WRITE_N_UPDATE_N, 6, 32767);
+  uint16_t i3 = (uint16_t) (DCComponentI[2] + amplitudeI[2] * sineTable[indexI[2]]);
+  valdytiSAK(WRITE_N_UPDATE_N, 6, i3);
 
-  uint16_t iN = i1 + i2 + i3 - (amplitudeI[0] + amplitudeI[1] + amplitudeI[2])/3;
-  signal_statuses[7] ? valdytiSAK(WRITE_N_UPDATE_N, 7, iN) : valdytiSAK(WRITE_N_UPDATE_N, 7, 32767);
+  uint16_t iN = 0x7FFF + i1 - DCComponentI[0] + i2 - DCComponentI[1] + i3 - DCComponentI[2];
+  valdytiSAK(WRITE_N_UPDATE_N, 7, iN);
 
-
-  index1 += tableStep[0];
-  index2 += tableStep[1];
-  index3 += tableStep[2];
 
 }

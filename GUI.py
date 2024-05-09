@@ -301,7 +301,7 @@ def update(value: str, parameter_id: int, type: str, phase_id: int, type_changed
             packet += int(round_half_up(float(value) * 6553.5 )).to_bytes(2)    
             logging.info(
                 f"Packet: {packet.hex('|')} "
-                f"– Amplitude: {value} {units} – RMS: ? {units}"
+                f"- Amplitude: {value} {units} - RMS: ? {units}"
             )
         case 0x46:
             frequency[phase_id] = int(value)
@@ -309,7 +309,7 @@ def update(value: str, parameter_id: int, type: str, phase_id: int, type_changed
             packet += int(round_half_up(float(value) * 5.32)).to_bytes(2)
             logging.info(
                 f"Packet: {packet.hex('|')} "
-                f"– Frequency: {value} Hz"
+                f"- Frequency: {value} Hz"
             )
         case 0x50:
             phase_angle[signal_id] = int(value)
@@ -317,7 +317,7 @@ def update(value: str, parameter_id: int, type: str, phase_id: int, type_changed
             packet += struct.pack('>f', int(value)/360)
             logging.info(
                 f"Packet: {packet.hex('|')} "
-                f"– Phase: {value}°"
+                f"- Phase: {value}°"
             )
         case 0x48:
 
@@ -448,7 +448,7 @@ def update(value: str, parameter_id: int, type: str, phase_id: int, type_changed
             packet += harmonics_order.to_bytes(1)
             logging.info(
                 f"Packet: {packet.hex('|')} "
-                f"– Harmonics: {harmonics_order}"
+                f"- Harmonics: {harmonics_order}"
             )
     
     update_signal()
@@ -835,7 +835,7 @@ def main():
     logging.basicConfig(
         level = 'INFO', 
         style = '{', 
-        format = 'line {lineno} – {levelname}: {message}'
+        format = 'line {lineno} - {levelname}: {message}'
     )
 
     root = tk.Tk()
