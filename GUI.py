@@ -481,19 +481,17 @@ def parameter_controls(
         try:
             new_value = parameter_var.get()
 
-            if new_value > max_value: new_value = max_value
-            elif new_value < min_value: new_value = min_value
-
             if parameter_id == 0x41:
                 if type == "U":
-                    k = sensor_settings["primary_voltage"] / sensor_settings["voltage_sensor_v"]
+                    new_value = new_value / voltage_sensor_coefficient
                 elif type == "I":
-                    k = sensor_settings["primary_current"] / sensor_settings["current_sensor_mv"]
-                parameter_var.set(new_value * k)
+                    new_value = new_value / current_sensor_coefficient
 
             else:
                 parameter_var.set(new_value)
 
+            if new_value > max_value: new_value = max_value
+            elif new_value < min_value: new_value = min_value
             update_function(new_value, parameter_id, type, phase_id)
         except ValueError as e:
             logging.error(e)
@@ -651,14 +649,18 @@ def main_parameters_controls(
     
     units = [ "Hz", "V", "°", "A", "°" ]
     min_values = [ 0, 0, 0, 0, 0 ]
-    max_values = [ 100, 10, 360, 10, 360 ]
-    max_values[1] = max_values[1] * sensor_settings["primary_voltage"] / sensor_settings["voltage_sensor_v"]
-    max_values[3] = max_values[3] * sensor_settings["primary_current"] / sensor_settings["current_sensor_mv"]
-    resolutions = [ 1, 0.01, 1, 0.01, 1 ]
+    max_values = [ 
+        100, 
+        10 * voltage_sensor_coefficient, 
+        360, 
+        10 * current_sensor_coefficient, 
+        360
+     ]
+    resolutions = [ 1, 1, 1, 1, 1 ]
     default_values = [
-        [ 50, 5.0, 0, 1.0, 0 ],
-        [ 50, 5.0, 120, 1.0, 120 ],
-        [ 50, 5.0, 240, 1.0, 240 ]
+        [ 50, sensor_settings["primary_voltage"], 0,   sensor_settings["primary_current"], 0 ],
+        [ 50, sensor_settings["primary_voltage"], 120, sensor_settings["primary_current"], 120 ],
+        [ 50, sensor_settings["primary_voltage"], 240, sensor_settings["primary_current"], 240 ]
     ]
     update_functions = [ 
         update, 
@@ -835,6 +837,8 @@ def main():
     global harmonics_order_var
 
     global sensor_settings
+    global voltage_sensor_coefficient
+    global current_sensor_coefficient
     
     global amplitude
     global frequency
@@ -883,6 +887,16 @@ def main():
     frame_phasor_plot = tk.Frame(root)
     frame_phasor_plot.grid(row=1, column=1, padx=10, pady=10)
     frame_phasor_plot.configure(bg='white')
+
+    sensor_settings = {
+        "primary_current": 100,
+        "primary_voltage": 10000,
+        "current_sensor_mv": 225,
+        "voltage_sensor_v": 1.876
+    }
+
+    voltage_sensor_coefficient = sensor_settings["primary_voltage"] / sensor_settings["voltage_sensor_v"]
+    current_sensor_coefficient = sensor_settings["primary_current"] / sensor_settings["current_sensor_mv"]
 
 
     amplitude = { 
