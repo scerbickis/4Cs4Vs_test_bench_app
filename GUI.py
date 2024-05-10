@@ -280,7 +280,6 @@ def menu(root: tk.Tk):
     root.config(menu=menubar)
 
 
-
 def update(value: str, parameter_id: int, type: str, phase_id: int, type_changed = False):
 
     packet = bytes([0x53, parameter_id, phase_id])
@@ -317,7 +316,7 @@ def update(value: str, parameter_id: int, type: str, phase_id: int, type_changed
         case 0x50:
             phase_angle[signal_id] = int(value)
             update_rms_values()
-            packet += struct.pack('>f', int(value)/360)
+            packet += phase_angle[signal_id].to_bytes(2)
             logging.info(
                 f"Packet: {packet.hex('|')} "
                 f"- Phase: {value}°"
@@ -459,9 +458,8 @@ def update(value: str, parameter_id: int, type: str, phase_id: int, type_changed
     update_phasor()
 
     # Send the command to the Arduino
-    if "ser" in globals(): 
-        ser.write(packet)
-        logging.info(ser.read(len(packet)).hex("|"))
+    if "ser" in globals(): ser.write(packet)
+
 
 
 def parameter_controls(
@@ -482,12 +480,20 @@ def parameter_controls(
     def update_spinbox(*args):
         try:
             new_value = parameter_var.get()
-            if new_value > max_value: 
-                parameter_var.set(max_value)
-                new_value = max_value
-            elif new_value < min_value:
-                parameter_var.set(min_value)
-                new_value = min_value
+
+            if new_value > max_value: new_value = max_value
+            elif new_value < min_value: new_value = min_value
+
+            if parameter_id == 0x41:
+                if type == "U":
+                    k = sensor_settings["primary_voltage"] / sensor_settings["voltage_sensor_v"]
+                elif type == "I":
+                    k = sensor_settings["primary_current"] / sensor_settings["current_sensor_mv"]
+                parameter_var.set(new_value * k)
+
+            else:
+                parameter_var.set(new_value)
+
             update_function(new_value, parameter_id, type, phase_id)
         except ValueError as e:
             logging.error(e)
@@ -508,7 +514,7 @@ def parameter_controls(
         increment=resolution,
         width=5,
         textvariable=parameter_var,
-        command=lambda *args: update_function(
+        command=lambda *args: update_spinbox(
             parameter_var.get(),
             parameter_id,
             type,
@@ -646,6 +652,8 @@ def main_parameters_controls(
     units = [ "Hz", "V", "°", "A", "°" ]
     min_values = [ 0, 0, 0, 0, 0 ]
     max_values = [ 100, 10, 360, 10, 360 ]
+    max_values[1] = max_values[1] * sensor_settings["primary_voltage"] / sensor_settings["voltage_sensor_v"]
+    max_values[3] = max_values[3] * sensor_settings["primary_current"] / sensor_settings["current_sensor_mv"]
     resolutions = [ 1, 0.01, 1, 0.01, 1 ]
     default_values = [
         [ 50, 5.0, 0, 1.0, 0 ],
@@ -824,7 +832,9 @@ def main():
     global harmonic_spinbox
     global frame_signal_plot, frame_phasor_plot
 
-    global  harmonics_order_var
+    global harmonics_order_var
+
+    global sensor_settings
     
     global amplitude
     global frequency
@@ -874,6 +884,7 @@ def main():
     frame_phasor_plot.grid(row=1, column=1, padx=10, pady=10)
     frame_phasor_plot.configure(bg='white')
 
+
     amplitude = { 
         "u1": 5,
         "u2": 5,
@@ -897,10 +908,6 @@ def main():
     }
 
     powers = {
-        "p": 0,
-        "q": 0,
-        "s": 0,
-        "pf": 0,
         "p1": 0,
         "q1": 0,
         "s1": 0,
@@ -916,7 +923,11 @@ def main():
         "pN": 0,
         "qN": 0,
         "sN": 0,
-        "pfN": 0
+        "pfN": 0,
+        "p": 0,
+        "q": 0,
+        "s": 0,
+        "pf": 0
     }
 
     rms_entries = []
@@ -926,14 +937,14 @@ def main():
 
     phase_angle = { 
         "u1": 0,
-        "u2": 120,
-        "u3": 240,
+        "u2": 240,
+        "u3": 120,
         "uN": 0,
         "i1": 0,
-        "i2": 120,
-        "i3": 240,
+        "i2": 240,
+        "i3": 120,
         "iN": 0
-     }
+    }
     colors = ['brown', 'black', 'gray', 'blue']
     lines = [ "L1", "L2", "L3", "N" ]
 
