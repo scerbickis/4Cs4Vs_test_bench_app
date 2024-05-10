@@ -295,6 +295,7 @@ def update(value: str, parameter_id: int, type: str, phase_id: int, type_changed
     signal_id = f"{type.casefold()}{phase_id}"
 
     match parameter_id:
+        # 0x41 is the ASCII code for 'A' (A - amplitude)
         case 0x41:
             amplitude[signal_id] = float(value)
             update_rms_values()
@@ -303,6 +304,7 @@ def update(value: str, parameter_id: int, type: str, phase_id: int, type_changed
                 f"Packet: {packet.hex('|')} "
                 f"- Amplitude: {value} {units} - RMS: ? {units}"
             )
+        # 0x46 is the ASCII code for 'F' (F - frequency)
         case 0x46:
             frequency[phase_id] = int(value)
             update_rms_values()
@@ -311,6 +313,7 @@ def update(value: str, parameter_id: int, type: str, phase_id: int, type_changed
                 f"Packet: {packet.hex('|')} "
                 f"- Frequency: {value} Hz"
             )
+        # 0x50 is the ASCII code for 'P' (P - phase)
         case 0x50:
             phase_angle[signal_id] = int(value)
             update_rms_values()
@@ -319,6 +322,7 @@ def update(value: str, parameter_id: int, type: str, phase_id: int, type_changed
                 f"Packet: {packet.hex('|')} "
                 f"- Phase: {value}°"
             )
+        # 0x48 is the ASCII code for 'H' (H - harmonics)
         case 0x48:
 
             harmonics_order = int(value)
@@ -455,7 +459,10 @@ def update(value: str, parameter_id: int, type: str, phase_id: int, type_changed
     update_phasor()
 
     # Send the command to the Arduino
-    if "ser" in globals(): ser.write(packet) 
+    if "ser" in globals(): 
+        ser.write(packet)
+        logging.info(ser.read(len(packet)).hex("|"))
+
 
 def parameter_controls(
     frame: tk.Frame,

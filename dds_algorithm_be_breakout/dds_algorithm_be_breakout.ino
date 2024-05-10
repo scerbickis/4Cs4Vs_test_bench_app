@@ -1,42 +1,42 @@
 #include <SPI.h> //Įtraukiamas SPI biblioteka
 
-const uint8_t resolution = 16;
-const uint16_t tableLength = (1 << resolution) - 1; // Number of entries in the lookup table
+const byte resolution = 16;
+const word tableLength = (1 << resolution) - 1; // Number of entries in the lookup table
 
-const uint8_t WRITE_ALL = 14; //Apibrėžiamas visų SAK išėjimų įtampos diapazonų nustatymo komandos kodas
-const uint8_t WRITE_N_UPDATE_N = 3; /*Apibrėžiamas rašymo į tam tikro SAK išėjimo (n) įėjimo registrą
+const byte WRITE_ALL = 14; //Apibrėžiamas visų SAK išėjimų įtampos diapazonų nustatymo komandos kodas
+const byte WRITE_N_UPDATE_N = 3; /*Apibrėžiamas rašymo į tam tikro SAK išėjimo (n) įėjimo registrą
                                                   bei šio išėjimo SAK registro atnaujinimo komandos kodas*/
-const uint8_t SCOPE_10_10 = 0x03; //Diapazono nuo -10V iki 10V nustatymo komandos duomenų dalis
+const byte SCOPE_10_10 = 0x03; //Diapazono nuo -10V iki 10V nustatymo komandos duomenų dalis
 
-uint8_t phase_id = 1;// Phase id
+byte phase_id = 1;// Phase id
 
-uint16_t amplitudeU[3] = { 0x3FFF };
-uint16_t amplitudeI[3] = { 0x3FFF };
-uint16_t DCComponentU[3] = { 0x7FFF };
-uint16_t DCComponentI[3] = { 0x7FFF };
-uint16_t tableStep[3] = { 266 };
+word amplitudeU[3] = { 0x3FFF, 0x3FFF, 0x3FFF };
+word amplitudeI[3] = { 0x3FFF, 0x3FFF, 0x3FFF };
+word DCComponentU[3] = { 0x7FFF, 0x7FFF, 0x7FFF };
+word DCComponentI[3] = { 0x7FFF, 0x7FFF, 0x7FFF };
+word tableStep[3] = { 266, 266, 266 };
 // Amplitude, frequency and phase of the each phase
-uint16_t phaseU[3] = {0, (uint16_t) 2 * tableLength/3, (uint16_t) tableLength/3}; 
-uint16_t phaseI[3] = {0, (uint16_t) 2 * tableLength/3, (uint16_t) tableLength/3}; 
-uint8_t harmonicOrder = 1; // Harmonic order of the each phase
+word phaseU[3] = {0, (word) 2 * tableLength/3, (word) tableLength/3}; 
+word phaseI[3] = {0, (word) 2 * tableLength/3, (word) tableLength/3}; 
+byte harmonicOrder = 1; // Harmonic order of the each phase
 char harmonicParity = 'A'; // Harmonic parity of the each phase
 
 bool signal_statuses[8] = { true };
 
 // Index of the sine table for each phase
-uint16_t indexU[3] = {0}; 
-uint16_t indexI[3] = {0}; 
+word indexU[3] = {phaseU[0], phaseU[1], phaseU[2]}; 
+word indexI[3] = {phaseI[0], phaseI[1], phaseI[2]}; 
 
 float sineTable[tableLength] = {0.0}; // Lookup sine table 
 
 void calculateSineTable(){
 
-  for (uint16_t i = 0; i < tableLength; i++) {
+  for (word i = 0; i < tableLength; i++) {
 
-    uint8_t h;
+    byte h;
     sineTable[i] = 0.0;
 
-    for (uint8_t k = 1; k <= 50; k++){
+    for (byte k = 1; k <= 50; k++){
 
       if (harmonicParity == 'E') h = 2 * k;
       else if (harmonicParity == 'O') h = 2 * k - 1;
@@ -59,13 +59,13 @@ void calculateSineTable(){
 
 void setParameters() {
   
-  uint8_t phaseBuffer[4];
+  byte phaseBuffer[4];
   float phaseFactor;
-  uint8_t outputStatus;
-  uint8_t outputType;
+  byte outputStatus;
+  byte outputType;
 
   // Read the parameter id from the serial port
-  uint8_t parameter_id = Serial.read(); 
+  byte parameter_id = Serial.read(); 
   // Read the phase id from the serial port01
   phase_id = Serial.read(); 
 
@@ -99,15 +99,19 @@ void setParameters() {
     // 0x50 is Ascii for 'P'.
     case 0x50: 
 
-      for (uint8_t i = 0; i < 4; i++) phaseBuffer[i] = Serial.read();
+      for (byte i = 0; i < 4; i++) phaseBuffer[i] = Serial.read();
       memcpy(&phaseFactor, phaseBuffer, sizeof(float));
       
       if (outputType == 0x55) {
-        phaseU[phase_id - 1] = (uint16_t) (phaseFactor * tableLength);
+        phaseU[phase_id - 1] = (word) (phaseFactor * tableLength);
+        Serial.print(phaseU[phase_id - 1]);
+        for (byte i = 0; i < 3; i++) indexU[i] = phaseU[i];
       }
       
       else if (outputType == 0x49) {
-        phaseI[phase_id - 1] = (uint16_t) (phaseFactor * tableLength);
+        phaseI[phase_id - 1] = (word) (phaseFactor * tableLength);
+        Serial.print(phaseI[phase_id - 1]);
+        for (byte i = 0; i < 3; i++) indexI[i] = phaseI[i];
       }
       
       break;
@@ -142,7 +146,7 @@ void setParameters() {
 
 }
 
-void valdytiSAK(uint8_t komanda, uint8_t adresas, uint16_t duomenys) {
+void valdytiSAK(byte komanda, byte adresas, word duomenys) {
   
   /*Ši funkcija naudojama SAK valdymui per SPI sąsają*/
   SPI.beginTransaction(SPISettings(30e6, MSBFIRST, SPI_MODE0));
@@ -189,41 +193,38 @@ void setup() {
 void loop() {
 
   // if there is data available in the serial input buffer
-  if (Serial.available() > 0) { 
-    // if the received byte is 0x53, call the setup function
-    if (Serial.read() == 0x53) setParameters(); 
-  }
+  // if the received byte is 0x53, call the setup function
+  if (Serial.available() > 0 && Serial.read() == 0x53) setParameters();
 
-  for (uint8_t i = 0; i < 3; i++) {
-    indexU[i] = phaseU[i] + tableStep[i];
+  for (byte i = 0; i < 3; i++) {
+    indexU[i] += tableStep[i];
     if (indexU[i] > tableLength) indexU[i] -= tableLength;
-    indexI[i] = phaseI[i] + tableStep[i];
-    if (indexI[i + 3] > tableLength) indexI[i + 3] -= tableLength;
+    indexI[i] += tableStep[i];
+    if (indexI[i] > tableLength) indexI[i] -= tableLength;
   }
 
-  uint16_t u1 = (uint16_t) (DCComponentU[0] + amplitudeU[0] * sineTable[indexU[0]]);
+  word u1 = (word) amplitudeU[0] * sineTable[indexU[0]] + DCComponentU[0];
   valdytiSAK(WRITE_N_UPDATE_N, 0, u1);
 
-  uint16_t u2 = (uint16_t) (DCComponentU[1] + amplitudeU[1] * sineTable[indexU[1]]);
+  word u2 = (word) amplitudeU[1] * sineTable[indexU[1]] + DCComponentU[1];
   valdytiSAK(WRITE_N_UPDATE_N, 1, u2);
 
-  uint16_t u3 = (uint16_t) (DCComponentU[2] + amplitudeU[2] * sineTable[indexU[2]]);
+  word u3 = (word) amplitudeU[2] * sineTable[indexU[2]] + DCComponentU[2];
   valdytiSAK(WRITE_N_UPDATE_N, 2, u3);
 
-  uint16_t uN = 0x7FFF + u1 - DCComponentU[0] + u2 - DCComponentU[1] + u3 - DCComponentU[2];
+  word uN = 0x7FFF + (u1 - DCComponentU[0]) + (u2 - DCComponentU[1]) + (u3 - DCComponentU[2]);
   valdytiSAK(WRITE_N_UPDATE_N, 3, uN);
 
-  uint16_t i1 = (uint16_t) (DCComponentI[0] + amplitudeI[0] * sineTable[indexI[0]]);
+  word i1 = (word) amplitudeI[0] * sineTable[indexI[0]] + DCComponentI[0];
   valdytiSAK(WRITE_N_UPDATE_N, 4, i1);
 
-  uint16_t i2 = (uint16_t) (DCComponentI[1] + amplitudeI[1] * sineTable[indexI[1]]);
+  word i2 = (word) amplitudeI[1] * sineTable[indexI[1]] + DCComponentI[1];
   valdytiSAK(WRITE_N_UPDATE_N, 5, i2);
 
-  uint16_t i3 = (uint16_t) (DCComponentI[2] + amplitudeI[2] * sineTable[indexI[2]]);
+  word i3 = (word) amplitudeI[2] * sineTable[indexI[2]] + DCComponentI[2];
   valdytiSAK(WRITE_N_UPDATE_N, 6, i3);
 
-  uint16_t iN = 0x7FFF + i1 - DCComponentI[0] + i2 - DCComponentI[1] + i3 - DCComponentI[2];
+  word iN = 0x7FFF + (i1 - DCComponentI[0]) + (i2 - DCComponentI[1]) + (i3 - DCComponentI[2]);
   valdytiSAK(WRITE_N_UPDATE_N, 7, iN);
-
 
 }
