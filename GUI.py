@@ -296,13 +296,23 @@ def update(value: str, parameter_id: int, type: str, phase_id: int, type_changed
     match parameter_id:
         # 0x41 is the ASCII code for 'A' (A - amplitude)
         case 0x41:
-            amplitude[signal_id] = float(value)
+            amplitude[signal_id] = int(value)
             update_rms_values()
-            packet += int(round_half_up(float(value) * 6553.5 )).to_bytes(2)    
+
+            if type == "U":
+                DAC_rms = rms_values[signal_id] / voltage_sensor_coefficient
+                DAC_amplitude = amplitude[signal_id] / voltage_sensor_coefficient
+            elif type == "I":
+                DAC_rms = rms_values[signal_id] / current_sensor_coefficient
+                DAC_amplitude = amplitude[signal_id] / current_sensor_coefficient
+
+            packet += int(round_half_up(DAC_amplitude * 6553.5 )).to_bytes(2)    
             logging.info(
-                f"Packet: {packet.hex('|')} "
-                f"- Amplitude: {value} {units} - RMS: ? {units}"
+                f"Packet: {packet.hex('|')} - "
+                f"DAC Amplitude: {round_half_up(DAC_amplitude, 3)} {units} - "
+                f"DAC RMS: {round_half_up(DAC_rms, 3)} {units}"
             )
+
         # 0x46 is the ASCII code for 'F' (F - frequency)
         case 0x46:
             frequency[phase_id] = int(value)
@@ -480,18 +490,9 @@ def parameter_controls(
     def update_spinbox(*args):
         try:
             new_value = parameter_var.get()
-
-            if parameter_id == 0x41:
-                if type == "U":
-                    new_value = new_value / voltage_sensor_coefficient
-                elif type == "I":
-                    new_value = new_value / current_sensor_coefficient
-
-            else:
-                parameter_var.set(new_value)
-
             if new_value > max_value: new_value = max_value
             elif new_value < min_value: new_value = min_value
+            parameter_var.set(new_value)
             update_function(new_value, parameter_id, type, phase_id)
         except ValueError as e:
             logging.error(e)
@@ -510,7 +511,7 @@ def parameter_controls(
         from_=min_value,
         to=max_value,
         increment=resolution,
-        width=5,
+        width=7,
         textvariable=parameter_var,
         command=lambda *args: update_spinbox(
             parameter_var.get(),
@@ -583,12 +584,16 @@ def harmonic_type_selector(
 
 def iomod_settings(frame: tk.Frame, row: int, column: int):
 
+    global sensor_setting_entries
+
     params = {
         "Primary Current (A):": 100,
         "Primary Voltage (V):": 10000,
         "Current sensor (mV):": 225,
         "Voltage sensor (V):": 1.876
     }
+
+    sensor_setting_entries = []
 
     for r, (label, value) in enumerate(params.items()):
 
@@ -615,7 +620,8 @@ def iomod_settings(frame: tk.Frame, row: int, column: int):
         )
         parameter_entry.insert(0, str(value))
 
-    
+        sensor_setting_entries.append(parameter_entry)
+     
 
 
 def main_parameters_controls(
@@ -651,16 +657,24 @@ def main_parameters_controls(
     min_values = [ 0, 0, 0, 0, 0 ]
     max_values = [ 
         100, 
-        10 * voltage_sensor_coefficient, 
+        int(10 * voltage_sensor_coefficient * sqrt(2)), 
         360, 
-        10 * current_sensor_coefficient, 
+        int(10 * current_sensor_coefficient * sqrt(2)), 
         360
      ]
     resolutions = [ 1, 1, 1, 1, 1 ]
+    default_amplitudes = {
+        "u1": int(round_half_up(amplitude["u1"])),
+        "u2": int(round_half_up(amplitude["u2"])),
+        "u3": int(round_half_up(amplitude["u3"])),
+        "i1": int(round_half_up(amplitude["i1"])),
+        "i2": int(round_half_up(amplitude["i2"])),
+        "i3": int(round_half_up(amplitude["i3"]))
+    }
     default_values = [
-        [ 50, sensor_settings["primary_voltage"], 0,   sensor_settings["primary_current"], 0 ],
-        [ 50, sensor_settings["primary_voltage"], 120, sensor_settings["primary_current"], 120 ],
-        [ 50, sensor_settings["primary_voltage"], 240, sensor_settings["primary_current"], 240 ]
+        [ 50, default_amplitudes["u1"], 0, default_amplitudes["i1"], 0 ],
+        [ 50, default_amplitudes["u2"], 240, default_amplitudes["i2"], 240 ],
+        [ 50, default_amplitudes["u3"], 120, default_amplitudes["i3"], 120 ]
     ]
     update_functions = [ 
         update, 
@@ -671,8 +685,6 @@ def main_parameters_controls(
      ]
     parameter_ids = [ 0x46, 0x41, 0x50, 0x41, 0x50 ]
     types = [ "B", "U", "U", "I", "I" ]
-
-
     
     for c, line in enumerate(lines):
 
@@ -715,8 +727,7 @@ def main_parameters_controls(
                 phase_id=c + 1
             )
 
-    rms_measurements(frame, start_row + 6, start_column)  
-    power_measurements(frame, start_row + 8, start_column)
+    
 
 def get_rms(signal) -> float:
 
@@ -729,7 +740,7 @@ def update_rms_values():
     for i, (signal_name, signal) in enumerate(signals.items()):
 
         rms_values[signal_name] = get_rms(signal)
-        rms_value_to_show = round_half_up(rms_values[signal_name], precision=2)
+        rms_value_to_show = int(round_half_up(rms_values[signal_name]))
         rms_entries[i].delete(0, tk.END)
         rms_entries[i].insert(0, str(rms_value_to_show))
     
@@ -739,14 +750,16 @@ def rms_measurements(frame: tk.Frame, row: int, column: int):
 
     i = 0
 
+    rms_coefficients = []
+
     for r, unit in enumerate([ "V", "A" ]):
         for c in range(len(lines)):
             
-            rms_entry = tk.Entry(frame, width=7)
+            rms_entry = tk.Entry(frame, width=9)
             rms_entry.grid(
                 row=row + r, 
                 column=column + 1 + 2 * c,
-                padx=(0, 20),
+                # padx=(0, 20),
                 pady=5
             )
 
@@ -760,7 +773,7 @@ def rms_measurements(frame: tk.Frame, row: int, column: int):
             units_label.config(font=("Arial", 9), bg="white")
             
             rms_values[list(signals.keys())[i]] = get_rms(list(signals.values())[i])
-            rms_value_to_show = round_half_up(rms_values[list(signals.keys())[i]], precision=2)
+            rms_value_to_show = int(round_half_up(rms_values[list(signals.keys())[i]]))
             rms_entry.insert(0, str(rms_value_to_show))
 
             rms_entries.append(rms_entry)
@@ -792,11 +805,11 @@ def power_measurements(frame: tk.Frame, row: int, column: int):
 
         for r, label in enumerate(labels):
 
-            parameter_entry = tk.Entry(frame, width=7)
+            parameter_entry = tk.Entry(frame, width=9)
             parameter_entry.grid(
                 row=row + r + 1, 
                 column=column + 1 + 2 * c,
-                padx=(0, 20),
+                # padx=(0, 20),
                 pady=5
             )
             power_entries.append(parameter_entry)
@@ -822,7 +835,7 @@ def update_power_values():
 
     for entry, power_value in zip(power_entries, powers.values()):
             
-        power_value = round_half_up(power_value, precision=2)
+        power_value = int(round_half_up(power_value))
         entry.delete(0, tk.END)
         entry.insert(0, str(power_value))
 
@@ -891,33 +904,33 @@ def main():
     sensor_settings = {
         "primary_current": 100,
         "primary_voltage": 10000,
-        "current_sensor_mv": 225,
+        "current_sensor_v": 0.225,
         "voltage_sensor_v": 1.876
     }
 
     voltage_sensor_coefficient = sensor_settings["primary_voltage"] / sensor_settings["voltage_sensor_v"]
-    current_sensor_coefficient = sensor_settings["primary_current"] / sensor_settings["current_sensor_mv"]
+    current_sensor_coefficient = sensor_settings["primary_current"] / sensor_settings["current_sensor_v"]
 
 
     amplitude = { 
-        "u1": 5,
-        "u2": 5,
-        "u3": 5,
+        "u1": sensor_settings["primary_voltage"] * sqrt(2),
+        "u2": sensor_settings["primary_voltage"] * sqrt(2),
+        "u3": sensor_settings["primary_voltage"] * sqrt(2),
         "uN": 0,
-        "i1": 1,
-        "i2": 1,
-        "i3": 1,
+        "i1": sensor_settings["primary_current"] * sqrt(2),
+        "i2": sensor_settings["primary_current"] * sqrt(2),
+        "i3": sensor_settings["primary_current"] * sqrt(2),
         "iN": 0
     }
     
     rms_values = {
-        "u1": 0,
-        "u2": 0,
-        "u3": 0,
+        "u1": sensor_settings["primary_voltage"],
+        "u2": sensor_settings["primary_voltage"],
+        "u3": sensor_settings["primary_voltage"],
         "uN": 0,
-        "i1": 0,
-        "i2": 0,
-        "i3": 0,
+        "i1": sensor_settings["primary_current"],
+        "i2": sensor_settings["primary_current"],
+        "i3": sensor_settings["primary_current"],
         "iN": 0
     }
 
@@ -987,7 +1000,9 @@ def main():
         start_row=0,
         start_column=0
     )
-   
+    
+    rms_measurements(frame_main_params, 6, 0)  
+    power_measurements(frame_main_params, 8, 0)
 
     harmonic_spinbox= harmonic_control_variables["spinbox"]
     harmonics_order_var = harmonic_control_variables["var"]
