@@ -282,7 +282,9 @@ def menu(root: tk.Tk):
 
 def update(value: str, parameter_id: int, type: str, phase_id: int, type_changed = False):
 
-    packet = bytes([0x53, parameter_id, phase_id])
+    packet = bytes([0x53, parameter_id])
+    if parameter_id != 0x48:
+        packet += bytes([phase_id])
     
     if type == "U":
         packet += bytes([0x55]) # ASCII code for 'U'
@@ -635,9 +637,7 @@ def main_parameters_controls(
         "U (Amplitude):",
         "U (Angle):",
         "I (Amplitude):",
-        "I (Angle):",
-        "U (RMS):",
-        "I (RMS):"
+        "I (Angle):"
     ]
 
     for i, label in enumerate(labels, start=1):
@@ -752,7 +752,21 @@ def rms_measurements(frame: tk.Frame, row: int, column: int):
 
     rms_coefficients = []
 
-    for r, unit in enumerate([ "V", "A" ]):
+    rms_names = [ "U (RMS):", "I (RMS):"]
+
+    for r, label in enumerate(rms_names, start=1):
+
+        parameter_label = tk.Label(frame, text=label)
+        parameter_label.grid(
+            row=row + r, 
+            column=column, 
+            sticky="W", 
+            padx=(5, 15), 
+            pady=5
+        )
+        parameter_label.config(font=("Arial", 10, "bold"), bg="white")
+
+    for r, unit in enumerate([ "V", "A" ], start=1):
         for c in range(len(lines)):
             
             rms_entry = tk.Entry(frame, width=9)
@@ -889,7 +903,7 @@ def main():
     frame_main_params.configure(bg='white')
 
     frame_harmonics = tk.Frame(root)
-    frame_harmonics.grid(row=2, column=0, padx=10, pady=10)
+    frame_harmonics.grid(row=0, column=1, padx=10, pady=10)
     frame_harmonics.bind("<Button-1>", lambda event: frame_harmonics.focus_set())
     frame_harmonics.configure(bg='white')
 
@@ -1001,8 +1015,10 @@ def main():
         start_column=0
     )
     
-    rms_measurements(frame_main_params, 6, 0)  
-    power_measurements(frame_main_params, 8, 0)
+    frame_main_params.rowconfigure(6, minsize=20)
+    rms_measurements(frame_main_params, 7, 0)  
+    frame_main_params.rowconfigure(10, minsize=20)
+    power_measurements(frame_main_params, 10, 0)
 
     harmonic_spinbox= harmonic_control_variables["spinbox"]
     harmonics_order_var = harmonic_control_variables["var"]

@@ -59,15 +59,13 @@ void calculateSineTable(){
 
 void setParameters() {
   
-  byte phaseBuffer[4];
-  float phaseFactor;
   byte outputStatus;
   byte outputType;
 
   // Read the parameter id from the serial port
   byte parameter_id = Serial.read(); 
   // Read the phase id from the serial port01
-  phase_id = Serial.read(); 
+  if (parameter_id != 0x48) phase_id = Serial.read(); 
 
   // Read the output type from the serial port
   if (parameter_id == 0x41 || parameter_id == 0x50) {
@@ -98,19 +96,16 @@ void setParameters() {
 
     // 0x50 is Ascii for 'P'.
     case 0x50: 
-
-      for (byte i = 0; i < 4; i++) phaseBuffer[i] = Serial.read();
-      memcpy(&phaseFactor, phaseBuffer, sizeof(float));
       
+      word angle = (Serial.read() << 8) | Serial.read();
+
       if (outputType == 0x55) {
-        phaseU[phase_id - 1] = (word) (phaseFactor * tableLength);
-        Serial.print(phaseU[phase_id - 1]);
+        phaseU[phase_id - 1] = (word) angle * tableLength / 360;
         for (byte i = 0; i < 3; i++) indexU[i] = phaseU[i];
       }
       
       else if (outputType == 0x49) {
-        phaseI[phase_id - 1] = (word) (phaseFactor * tableLength);
-        Serial.print(phaseI[phase_id - 1]);
+        phaseI[phase_id - 1] = (word) angle * tableLength / 360;
         for (byte i = 0; i < 3; i++) indexI[i] = phaseI[i];
       }
       
