@@ -633,10 +633,11 @@ def main_parameters_controls(
 ):
 
     labels = [
-        "Frequency:",
+        "U (Frequency):",
+        "I (Frequency):",
         "U (Amplitude):",
-        "U (Angle):",
         "I (Amplitude):",
+        "U (Angle):",
         "I (Angle):"
     ]
 
@@ -653,16 +654,17 @@ def main_parameters_controls(
         parameter_label.config(font=("Arial", 10, "bold"), bg="white")
 
     
-    units = [ "Hz", "V", "°", "A", "°" ]
-    min_values = [ 0, 0, 0, 0, 0 ]
+    units = [ "Hz", "Hz", "V", "A", "°", "°" ]
+    min_values = [ 0, 0, 0, 0, 0, 0 ]
     max_values = [ 
         100, 
+        100, 
         int(10 * voltage_sensor_coefficient * sqrt(2)), 
-        360, 
-        int(10 * current_sensor_coefficient * sqrt(2)), 
+        int(10 * current_sensor_coefficient * sqrt(2)),
+        360,  
         360
      ]
-    resolutions = [ 1, 1, 1, 1, 1 ]
+    resolutions = [ 1, 1, 1, 1, 1, 1 ]
     default_amplitudes = {
         "u1": int(round_half_up(amplitude["u1"])),
         "u2": int(round_half_up(amplitude["u2"])),
@@ -672,19 +674,20 @@ def main_parameters_controls(
         "i3": int(round_half_up(amplitude["i3"]))
     }
     default_values = [
-        [ 50, default_amplitudes["u1"], 0, default_amplitudes["i1"], 0 ],
-        [ 50, default_amplitudes["u2"], 240, default_amplitudes["i2"], 240 ],
-        [ 50, default_amplitudes["u3"], 120, default_amplitudes["i3"], 120 ]
+        [ 50, 50, default_amplitudes["u1"], default_amplitudes["i1"], 0,  0 ],
+        [ 50, 50, default_amplitudes["u2"], default_amplitudes["i2"], 240, 240 ],
+        [ 50, 50, default_amplitudes["u3"], default_amplitudes["i3"], 120, 120 ]
     ]
-    update_functions = [ 
+    update_functions = [
+        update, 
         update, 
         update, 
         update, 
         update, 
         update
      ]
-    parameter_ids = [ 0x46, 0x41, 0x50, 0x41, 0x50 ]
-    types = [ "B", "U", "U", "I", "I" ]
+    parameter_ids = [ 0x46, 0x46, 0x41, 0x41, 0x50,  0x50 ]
+    types = [ "U", "I", "U", "I", "U",  "I" ]
     
     for c, line in enumerate(lines):
 

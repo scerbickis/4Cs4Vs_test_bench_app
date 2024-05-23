@@ -18,7 +18,8 @@ word amplitudeU[3] = { 0x3FFF, 0x3FFF, 0x3FFF };
 word amplitudeI[3] = { 0x3FFF, 0x3FFF, 0x3FFF };
 word DCComponentU[3] = { 0x7FFF, 0x7FFF, 0x7FFF };
 word DCComponentI[3] = { 0x7FFF, 0x7FFF, 0x7FFF };
-word tableStep[3] = { 266, 266, 266 };
+word tableStepU[3] = { 266, 266, 266 };
+word tableStepI[3] = { 266, 266, 266 };
 word u[3] = {0, 0, 0};
 word i[3] = {0, 0, 0};
 // Amplitude, frequency and phase of the each phase
@@ -63,88 +64,77 @@ void calculateSineTable(){
 
 void setParameters() {
   
-  byte outputStatus;
-  byte outputType;
-
   // Read the parameter id from the serial port
   byte parameter_id = Serial.read(); 
-  // Read the phase id from the serial port01
-  if (parameter_id != 0x48) phase_id = Serial.read(); 
 
-  // Read the output type from the serial port
-  if (parameter_id == 0x41 || parameter_id == 0x50) {
-    outputType = Serial.read(); 
+  if (parameter_id == 0x48) {
+    // Read the harmonic parity from the serial port
+    harmonicParity = Serial.read(); 
+    // Read the harmonic order from the serial port
+    harmonicOrder = Serial.read(); 
+    if (harmonicOrder == 0) harmonicOrder = 1;
+    calculateSineTable();
   }
 
-  switch(parameter_id){
-    
-    // 0x41 is Ascii for 'A'. 
-    // If the parameter id is 0x41, read the amplitude from the serial port
-    case 0x41: 
-      // Shift the byte by 8 bits
-      if (outputType == 0x55) {
-        amplitudeU[phase_id - 1] = (Serial.read() << 8) | Serial.read();
-      } 
-      // Shift the byte by 8 bits
-      else if (outputType == 0x49) {
-        amplitudeI[phase_id - 1] = (Serial.read() << 8) | Serial.read(); 
-      }
-      break;
+  else if (parameter_id == 0x46 || parameter_id == 0x41 || parameter_id == 0x50) {
+    // Read the phase id from the serial port01
+    phase_id = Serial.read(); 
+    // Read the output type from the serial port
+     byte outputType = Serial.read();
 
-    // 0x46 is Ascii for 'F'.
-    // If the parameter id is 0x46, read the step size from the serial port
-    case 0x46: 
-      // Shift the byte by 8 bits
-      tableStep[phase_id - 1] = (Serial.read() << 8) | Serial.read(); 
-      break;
+    switch(parameter_id){
+      
+      // 0x41 is Ascii for 'A'. 
+      // If the parameter id is 0x41, read the amplitude from the serial port
+      case 0x41: 
+        // Shift the byte by 8 bits
+        if (outputType == 0x55) {
+          amplitudeU[phase_id - 1] = (Serial.read() << 8) | Serial.read();
+        } 
+        // Shift the byte by 8 bits
+        else if (outputType == 0x49) {
+          amplitudeI[phase_id - 1] = (Serial.read() << 8) | Serial.read(); 
+        }
+        break;
 
-    // 0x50 is Ascii for 'P'.
-    case 0x50: {
+      // 0x46 is Ascii for 'F'.
+      // If the parameter id is 0x46, read the step size from the serial port
+      case 0x46: 
+        // Shift the byte by 8 bits
+        if (outputType == 0x55) {
+          tableStepU[phase_id - 1] = (Serial.read() << 8) | Serial.read();
+        }
+        // Shift the byte by 8 bits
+        else if (outputType == 0x49) {
+          tableStepI[phase_id - 1] = (Serial.read() << 8) | Serial.read();
+        }
       
-      word angle = (Serial.read() << 8) | Serial.read();
+        break;
 
-      if (outputType == 0x55) {
-        phaseU[phase_id - 1] = (word) angle * tableLength / 360;
-        for (byte line = 0; line < 3; line++) indexU[line] = phaseU[line];
+      // 0x50 is Ascii for 'P'.
+      case 0x50: {
+        
+        word angle = (Serial.read() << 8) | Serial.read();
+
+        if (outputType == 0x55) {
+          phaseU[phase_id - 1] = (word) angle * tableLength / 360;
+          for (byte line = 0; line < 3; line++) indexU[line] = phaseU[line];
+        }
+        
+        else if (outputType == 0x49) {
+          phaseI[phase_id - 1] = (word) angle * tableLength / 360;
+          for (byte line = 0; line < 3; line++) indexI[line] = phaseI[line];
+        }
+        
+        break;
       }
-      
-      else if (outputType == 0x49) {
-        phaseI[phase_id - 1] = (word) angle * tableLength / 360;
-        for (byte line = 0; line < 3; line++) indexI[line] = phaseI[line];
-      }
-      
-      break;
+
+      // If the parameter id is not 0x46 or 0x41, break the switch statement
+      default: 
+        break;
     }
-      
-      
-
-    // 0x48 is Ascii for 'H'.
-    // If the parameter id is 0x48, read the harmonic value from the serial port
-    case 0x48: 
-      
-      // Read the harmonic parity from the serial port
-      harmonicParity = Serial.read(); 
-      // Read the harmonic order from the serial port
-      harmonicOrder = Serial.read(); 
-      if (harmonicOrder == 0) harmonicOrder = 1;
-      calculateSineTable();
-      
-      break;
-
-    // 0x4F is Ascii for 'O'.
-    case 0x4F: 
-      
-      // Read the output status and address from the serial port
-      outputStatus = Serial.read(); 
-      // Read the signal status from the serial port
-      signal_statuses[outputStatus & 0x0F] = (outputStatus & 0xF0) >> 4; 
-      
-      break;
-
-    // If the parameter id is not 0x46 or 0x41, break the switch statement
-    default: 
-      break;
   }
+  
 
 }
 
@@ -203,9 +193,9 @@ void loop() {
 
   for (byte line = 0; line < 3; line++) {
     
-    indexU[line] += tableStep[line];
+    indexU[line] += tableStepU[line];
     if (indexU[line] > tableLength) indexU[line] -= tableLength;
-    indexI[line] += tableStep[line];
+    indexI[line] += tableStepI[line];
     if (indexI[line] > tableLength) indexI[line] -= tableLength;
 
     u[line] = (word) amplitudeU[line] * sineTable[indexU[line]] + DCComponentU[line];
