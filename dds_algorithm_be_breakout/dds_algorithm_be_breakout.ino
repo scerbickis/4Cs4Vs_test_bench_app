@@ -1,12 +1,16 @@
 #include <SPI.h> //Įtraukiamas SPI biblioteka
 
 const byte resolution = 16;
-const word tableLength = (1 << resolution) - 1; // Number of entries in the lookup table
+// Number of entries in the lookup table
+const word tableLength = (1 << resolution) - 1; 
 
-const byte WRITE_ALL = 14; //Apibrėžiamas visų SAK išėjimų įtampos diapazonų nustatymo komandos kodas
-const byte WRITE_N_UPDATE_N = 3; /*Apibrėžiamas rašymo į tam tikro SAK išėjimo (n) įėjimo registrą
-                                                  bei šio išėjimo SAK registro atnaujinimo komandos kodas*/
-const byte SCOPE_10_10 = 0x03; //Diapazono nuo -10V iki 10V nustatymo komandos duomenų dalis
+//Apibrėžiamas visų SAK išėjimų įtampos diapazonų nustatymo komandos kodas
+const byte WRITE_ALL = 14; 
+/*Apibrėžiamas rašymo į tam tikro SAK išėjimo (n) įėjimo registrą
+bei šio išėjimo SAK registro atnaujinimo komandos kodas*/
+const byte WRITE_N_UPDATE_N = 3; 
+//Diapazono nuo -10V iki 10V nustatymo komandos duomenų dalis
+const byte SCOPE_10_10 = 0x03; 
 
 byte phase_id = 1;// Phase id
 
@@ -15,6 +19,8 @@ word amplitudeI[3] = { 0x3FFF, 0x3FFF, 0x3FFF };
 word DCComponentU[3] = { 0x7FFF, 0x7FFF, 0x7FFF };
 word DCComponentI[3] = { 0x7FFF, 0x7FFF, 0x7FFF };
 word tableStep[3] = { 266, 266, 266 };
+word u[3] = {0, 0, 0};
+word i[3] = {0, 0, 0};
 // Amplitude, frequency and phase of the each phase
 word phaseU[3] = {0, (word) 2 * tableLength/3, (word) tableLength/3}; 
 word phaseI[3] = {0, (word) 2 * tableLength/3, (word) tableLength/3}; 
@@ -31,12 +37,12 @@ float sineTable[tableLength] = {0.0}; // Lookup sine table
 
 void calculateSineTable(){
 
-  for (word i = 0; i < tableLength; i++) {
+  for (word index = 0; index < tableLength; index++) {
 
     byte h;
-    sineTable[i] = 0.0;
+    sineTable[index] = 0.0;
 
-    for (byte k = 1; k <= 50; k++){
+    for (byte k = 1; k <= harmonicOrder; k++){
 
       if (harmonicParity == 'E') h = 2 * k;
       else if (harmonicParity == 'O') h = 2 * k - 1;
@@ -46,10 +52,8 @@ void calculateSineTable(){
       else if (harmonicParity == 'N') h = 3 * k - 1;
       else if (harmonicParity == 'Z') h = 3 * k;
       else h = k;
-
-      if (h > harmonicOrder) break;
-
-      sineTable[i] += sin(h * i * TWO_PI / tableLength) / (float) h;
+      
+      sineTable[index] += sin(h * index * TWO_PI / tableLength) / (float) h;
 
     }
 
@@ -95,21 +99,24 @@ void setParameters() {
       break;
 
     // 0x50 is Ascii for 'P'.
-    case 0x50: 
+    case 0x50: {
       
       word angle = (Serial.read() << 8) | Serial.read();
 
       if (outputType == 0x55) {
         phaseU[phase_id - 1] = (word) angle * tableLength / 360;
-        for (byte i = 0; i < 3; i++) indexU[i] = phaseU[i];
+        for (byte line = 0; line < 3; line++) indexU[line] = phaseU[line];
       }
       
       else if (outputType == 0x49) {
         phaseI[phase_id - 1] = (word) angle * tableLength / 360;
-        for (byte i = 0; i < 3; i++) indexI[i] = phaseI[i];
+        for (byte line = 0; line < 3; line++) indexI[line] = phaseI[line];
       }
       
       break;
+    }
+      
+      
 
     // 0x48 is Ascii for 'H'.
     // If the parameter id is 0x48, read the harmonic value from the serial port
@@ -143,45 +150,45 @@ void setParameters() {
 
 void valdytiSAK(byte komanda, byte adresas, word duomenys) {
   
-  /*Ši funkcija naudojama SAK valdymui per SPI sąsają*/
-  SPI.beginTransaction(SPISettings(30e6, MSBFIRST, SPI_MODE0));
-  /*Pradedamas duomenų perdavimas su SAK'u, 
-  nustatant Lusto Pasirinkimo kaiščio
-  išėjimo įtampos lygį į žemą*/
-  digitalWrite(PIN_SPI_SS, LOW); 
+    SPI.beginTransaction(SPISettings(30e6, MSBFIRST, SPI_MODE0));
+    /*Pradedamas duomenų perdavimas su SAK'u, 
+    nustatant Lusto Pasirinkimo kaiščio
+    išėjimo įtampos lygį į žemą*/
+    digitalWrite(PIN_SPI_SS, LOW); 
 
-  /*Atliekant komandinio baito loginį poslinkį keturiais bitais į kaire
-  ir atliekant loginį sumavimą su adreso baitu, 
-  sukuriamas paketo antraštės baitas*/
-  // Antraštės baito siuntimas   
-  SPI.transfer((komanda << 4) | adresas); 
-  // Dviejų baitų duomenų siuntimas 
-  SPI.transfer16(duomenys); 
+    /*Atliekant komandinio baito loginį poslinkį keturiais bitais į kaire
+    ir atliekant loginį sumavimą su adreso baitu, 
+    sukuriamas paketo antraštės baitas*/
+    // Antraštės baito siuntimas   
+    SPI.transfer((komanda << 4) | adresas); 
+    // Dviejų baitų duomenų siuntimas 
+    SPI.transfer16(duomenys); 
 
-  /*Baigiamas duomenų perdavimas su SAK'u, 
-  nustatant Lusto Pasirinkimo kaiščio
-  išėjimo įtampos lygį į aukštą*/
-  digitalWrite(PIN_SPI_SS, HIGH); 
+    /*Baigiamas duomenų perdavimas su SAK'u, 
+    nustatant Lusto Pasirinkimo kaiščio
+    išėjimo įtampos lygį į aukštą*/
+    digitalWrite(PIN_SPI_SS, HIGH); 
 
-  SPI.endTransaction(); //Baigiamas SPI perdavimas
+    //Baigiamas SPI perdavimas
+    SPI.endTransaction(); 
 
 }
 
 void setup() {
   
-  Serial.begin(115200);
-  while (!Serial);
-  
-  calculateSineTable();
-  
-  //Lusto išrinkimo kaištis nustatomas į išvesties režimą
-  pinMode(PIN_SPI_SS, OUTPUT); 
-  digitalWrite(PIN_SPI_SS, HIGH);
+    Serial.begin(115200);
+    while (!Serial);
+    
+    //Lusto išrinkimo kaištis nustatomas į išvesties režimą
+    pinMode(PIN_SPI_SS, OUTPUT); 
+    digitalWrite(PIN_SPI_SS, HIGH);
 
-  SPI.begin(); //Inicializuojama SPI magistralė
-  
-  //Visų SAK išėjimų diapazonų nustatymo komanda
-  valdytiSAK(WRITE_ALL, 0, SCOPE_10_10); 
+    SPI.begin(); //Inicializuojama SPI magistralė
+    
+    //Visų SAK išėjimų diapazonų nustatymo komanda
+    valdytiSAK(WRITE_ALL, 0, SCOPE_10_10); 
+
+    calculateSineTable();
 
 }
 
@@ -191,35 +198,26 @@ void loop() {
   // if the received byte is 0x53, call the setup function
   if (Serial.available() > 0 && Serial.read() == 0x53) setParameters();
 
-  for (byte i = 0; i < 3; i++) {
-    indexU[i] += tableStep[i];
-    if (indexU[i] > tableLength) indexU[i] -= tableLength;
-    indexI[i] += tableStep[i];
-    if (indexI[i] > tableLength) indexI[i] -= tableLength;
+  word uN = 0x7FFF;
+  word iN = 0x7FFF;
+
+  for (byte line = 0; line < 3; line++) {
+    
+    indexU[line] += tableStep[line];
+    if (indexU[line] > tableLength) indexU[line] -= tableLength;
+    indexI[line] += tableStep[line];
+    if (indexI[line] > tableLength) indexI[line] -= tableLength;
+
+    u[line] = (word) amplitudeU[line] * sineTable[indexU[line]] + DCComponentU[line];
+    valdytiSAK(WRITE_N_UPDATE_N, line, u[line]);
+    i[line] = (word) amplitudeI[line] * sineTable[indexI[line]] + DCComponentI[line];
+    valdytiSAK(WRITE_N_UPDATE_N, line + 4, i[line]);
+
+    uN += (u[line] - DCComponentU[line]);
+    iN += (i[line] - DCComponentI[line]);
   }
 
-  word u1 = (word) amplitudeU[0] * sineTable[indexU[0]] + DCComponentU[0];
-  valdytiSAK(WRITE_N_UPDATE_N, 0, u1);
-
-  word u2 = (word) amplitudeU[1] * sineTable[indexU[1]] + DCComponentU[1];
-  valdytiSAK(WRITE_N_UPDATE_N, 1, u2);
-
-  word u3 = (word) amplitudeU[2] * sineTable[indexU[2]] + DCComponentU[2];
-  valdytiSAK(WRITE_N_UPDATE_N, 2, u3);
-
-  word uN = 0x7FFF + (u1 - DCComponentU[0]) + (u2 - DCComponentU[1]) + (u3 - DCComponentU[2]);
   valdytiSAK(WRITE_N_UPDATE_N, 3, uN);
-
-  word i1 = (word) amplitudeI[0] * sineTable[indexI[0]] + DCComponentI[0];
-  valdytiSAK(WRITE_N_UPDATE_N, 4, i1);
-
-  word i2 = (word) amplitudeI[1] * sineTable[indexI[1]] + DCComponentI[1];
-  valdytiSAK(WRITE_N_UPDATE_N, 5, i2);
-
-  word i3 = (word) amplitudeI[2] * sineTable[indexI[2]] + DCComponentI[2];
-  valdytiSAK(WRITE_N_UPDATE_N, 6, i3);
-
-  word iN = 0x7FFF + (i1 - DCComponentI[0]) + (i2 - DCComponentI[1]) + (i3 - DCComponentI[2]);
   valdytiSAK(WRITE_N_UPDATE_N, 7, iN);
 
 }
