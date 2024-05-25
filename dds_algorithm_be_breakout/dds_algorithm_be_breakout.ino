@@ -80,62 +80,41 @@ void setParameters() {
     // Read the phase id from the serial port01
     phase_id = Serial.read(); 
     // Read the output type from the serial port
-     byte outputType = Serial.read();
+    byte outputType = Serial.read();
+    // Read 2 bytes of data from the serial port
+    word dataBytes = (Serial.read() << 8) | Serial.read();
 
     switch(parameter_id){
       
       // 0x41 is Ascii for 'A'. 
-      // If the parameter id is 0x41, read the amplitude from the serial port
       case 0x41: 
-        // Shift the byte by 8 bits
-        if (outputType == 0x55) {
-          amplitudeU[phase_id - 1] = (Serial.read() << 8) | Serial.read();
-        } 
-        // Shift the byte by 8 bits
-        else if (outputType == 0x49) {
-          amplitudeI[phase_id - 1] = (Serial.read() << 8) | Serial.read(); 
-        }
+        if (outputType == 0x55) amplitudeU[phase_id - 1] = dataBytes;
+        else if (outputType == 0x49) amplitudeI[phase_id - 1] = dataBytes; 
         break;
 
       // 0x46 is Ascii for 'F'.
-      // If the parameter id is 0x46, read the step size from the serial port
       case 0x46: 
-        // Shift the byte by 8 bits
-        if (outputType == 0x55) {
-          tableStepU[phase_id - 1] = (Serial.read() << 8) | Serial.read();
-        }
-        // Shift the byte by 8 bits
-        else if (outputType == 0x49) {
-          tableStepI[phase_id - 1] = (Serial.read() << 8) | Serial.read();
-        }
-      
+        if (outputType == 0x55) tableStepU[phase_id - 1] = dataBytes;
+        else if (outputType == 0x49) tableStepI[phase_id - 1] = dataBytes;
         break;
 
       // 0x50 is Ascii for 'P'.
       case 0x50: {
-        
-        word angle = (Serial.read() << 8) | Serial.read();
-
         if (outputType == 0x55) {
-          phaseU[phase_id - 1] = (word) angle * tableLength / 360;
+          phaseU[phase_id - 1] = (word) dataBytes * tableLength / 360;
           for (byte line = 0; line < 3; line++) indexU[line] = phaseU[line];
         }
-        
         else if (outputType == 0x49) {
-          phaseI[phase_id - 1] = (word) angle * tableLength / 360;
+          phaseI[phase_id - 1] = (word) dataBytes * tableLength / 360;
           for (byte line = 0; line < 3; line++) indexI[line] = phaseI[line];
         }
-        
         break;
       }
 
-      // If the parameter id is not 0x46 or 0x41, break the switch statement
       default: 
         break;
     }
   }
-  
-
 }
 
 void valdytiSAK(byte komanda, byte adresas, word duomenys) {

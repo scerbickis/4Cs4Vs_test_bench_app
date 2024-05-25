@@ -1,7 +1,7 @@
 import tkinter as tk
 import serial
 import logging
-import struct
+import fnmatch
 import matplotlib.pyplot as plt
 import numpy as np
 import itertools
@@ -18,53 +18,82 @@ def round_half_up(float_number: float, precision: int = 0) -> float:
     else:
         return int(float_number * factor - 0.5) / factor
 
-def update_signal():
+def update_time_plot(type: str):
 
     if "harmonic_spinbox" not in globals() or\
-        "signal_plots_U" not in globals(): 
+        signal_time_plots[type] == []: 
             return
 
-    signals_U = itertools.islice(signals.values(), 4)
+    type_keys = fnmatch.filter(signals.keys(), f"{type.casefold()}*")
+    certain_type_signals = [ signals[key] for key in type_keys ]
 
-    for signal_plot, signal_U in zip(signal_plots_U, signals_U):
-        signal_plot.set_ydata(signal_U)
+    for signal_plot, type_signal in zip(signal_time_plots[type], certain_type_signals):
+        signal_plot.set_ydata(type_signal)
+    axes[type].relim()
+    axes[type].autoscale_view()
+    
+    #TODO: Fix axes limits update problem
+    canvas_lines[type].draw_idle()
+    canvas_lines[type].get_tk_widget().update_idletasks()
+    
+    
+def plot_time_graph(frame: tk.Frame, row: int, column: int, type = "U"):
 
-    canvas_signals.draw()
+    def on_closing():
+        signal_time_plots[type] = []
+        child_window.destroy()
 
-def plot_time_graph(frame: tk.Frame, row: int, column: int):
+    if signal_time_plots[type] != []: return
 
-    global signal_plots_U, canvas_signals
+    global axes
+    
+    if "axes" not in globals():
+        axes = {
+            "U": None,
+            "I": None
+        }
 
-    signal_plots_U = []
+    if type == "U":
+        ylabel = "Amplitude (V Pk-Pk)"
+        title = "U(t) Graph"
+        max_value = amplitude["u1"] * 1.1
+    elif type == "I":
+        ylabel = "Amplitude (A Pk-Pk)"
+        title = "I(t) Graph"
+        max_value = amplitude["i1"] * 1.1
 
+    type_keys = fnmatch.filter(signals.keys(), f"{type.casefold()}*")
+    certain_type_signals = [ signals[key] for key in type_keys ]
     # Create a figure and a subplot
-    fig, ax = plt.subplots()
+    fig, axes[type] = plt.subplots()
     fig.set_size_inches(6, 4)
-    ax.set_ylim(-10, 10)
-    ax.set_ylabel("Amplitude (V Pk-Pk)")
-    ax.set_xlabel("Time (ms)")
-    ax.grid(linewidth=0.5, color='lightgray', linestyle='--')
-    ax.axhline(0, color='black', linewidth=0.5)  # Add x-axis
+    axes[type].set_ylim(-1 * max_value, max_value)
+    axes[type].set_ylabel(ylabel)
+    axes[type].set_xlabel("Time (ms)")
+    axes[type].grid(linewidth=0.5, color='lightgray', linestyle='--')
+    axes[type].axhline(0, color='black', linewidth=0.5)  # Add x-axis
 
-    signals_U = itertools.islice(signals.values(), 4)
+    loop_params = zip(certain_type_signals, colors, lines)
 
-    loop_params = zip(signals_U, colors, lines)
+    for type_signal, color, line_name in loop_params:
 
-    for signal_U, color, line_name in loop_params:
+        signal_plot, = axes[type].plot(t, type_signal, label = line_name, color=color)
+        signal_time_plots[type].append(signal_plot)
 
-        signal_plot, = ax.plot(t, signal_U, label = f"{line_name}", color=color)
-        signal_plots_U.append(signal_plot)
-
-    ax.legend(loc = "upper right", bbox_to_anchor=(1, 1), prop={'size': 7})
+    axes[type].legend(loc = "upper right", bbox_to_anchor=(1, 1), prop={'size': 7})
 
     child_window = tk.Toplevel(frame)
-    child_window.title("U(t) Graph")
+    child_window.title(title)
+    child_window.protocol(
+        "WM_DELETE_WINDOW", 
+        on_closing
+    )
     
-    canvas_signals = FigureCanvasTkAgg(fig, master=child_window)
+    canvas_lines[type] = FigureCanvasTkAgg(fig, master=child_window)
     
-    canvas_signals.draw()
+    canvas_lines[type].draw_idle()
 
-    canvas_widget = canvas_signals.get_tk_widget()
+    canvas_widget = canvas_lines[type].get_tk_widget()
     canvas_widget.grid(
         row=row, 
         column=column, 
@@ -74,7 +103,7 @@ def plot_time_graph(frame: tk.Frame, row: int, column: int):
         pady=10
     )
 
-def update_phasor():
+def update_phasor_plot():
 
     if not "phasors" in globals(): return
 
@@ -263,15 +292,20 @@ def menu(root: tk.Tk):
     graphs_menu = tk.Menu(menubar, tearoff=0)
     graphs_menu.add_command(
         label="U(t)", 
-        command=lambda: plot_time_graph(frame_signal_plot, row=0, column=0)
+        command=lambda: plot_time_graph(frame_signal_plot, row=0, column=0, type="U")
     )
     graphs_menu.add_command(
-        label="I(t)"
+        label="I(t)",
+        command=lambda: plot_time_graph(frame_signal_plot, row=0, column=0, type="I")
     )
     graphs_menu.add_command(
-        label="Phasors",
+        label="Phasor (U)",
         command=lambda: plot_phasors(frame_phasor_plot, row=0, column=0)
     )
+    graphs_menu.add_command(
+        label="Phasor (I)"
+    )
+
 
     menubar.add_cascade(label="Connect to Test Bench", menu=comport_menu)
     menubar.add_cascade(label="Graphs", menu=graphs_menu)
@@ -466,12 +500,11 @@ def update(value: str, parameter_id: int, type: str, phase_id: int, type_changed
                 f"- Harmonics: {harmonics_order}"
             )
     
-    update_signal()
-    update_phasor()
+    update_time_plot(type)
+    update_phasor_plot()
 
     # Send the command to the Arduino
     if "ser" in globals(): ser.write(packet)
-
 
 
 def parameter_controls(
@@ -878,6 +911,18 @@ def main():
     global rms_values, rms_entries
     global powers, power_entries
 
+    global signal_time_plots
+    global canvas_lines
+
+    canvas_lines = {
+        "U": None,
+        "I": None
+    }
+
+    signal_time_plots = {
+        "U": [],
+        "I": []
+    }
 
     def on_closing():
         plt.close('all')
@@ -910,13 +955,8 @@ def main():
     frame_harmonics.bind("<Button-1>", lambda event: frame_harmonics.focus_set())
     frame_harmonics.configure(bg='white')
 
-    frame_signal_plot = tk.Frame(root)
-    frame_signal_plot.grid(row=0, column=1, padx=10, pady=10)
-    frame_signal_plot.configure(bg='white')
-
-    frame_phasor_plot = tk.Frame(root)
-    frame_phasor_plot.grid(row=1, column=1, padx=10, pady=10)
-    frame_phasor_plot.configure(bg='white')
+    frame_signal_plot = tk.Frame(root).configure(bg='white')
+    frame_phasor_plot = tk.Frame(root).configure(bg='white')
 
     sensor_settings = {
         "primary_current": 100,
@@ -1018,10 +1058,10 @@ def main():
         start_column=0
     )
     
-    frame_main_params.rowconfigure(6, minsize=20)
-    rms_measurements(frame_main_params, 7, 0)  
-    frame_main_params.rowconfigure(10, minsize=20)
-    power_measurements(frame_main_params, 10, 0)
+    frame_main_params.rowconfigure(7, minsize=20)
+    rms_measurements(frame_main_params, 8, 0)  
+    frame_main_params.rowconfigure(11, minsize=20)
+    power_measurements(frame_main_params, 11, 0)
 
     harmonic_spinbox= harmonic_control_variables["spinbox"]
     harmonics_order_var = harmonic_control_variables["var"]
