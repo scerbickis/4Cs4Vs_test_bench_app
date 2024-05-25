@@ -14,10 +14,10 @@ const byte SCOPE_10_10 = 0x03;
 
 byte phase_id = 1;// Phase id
 
-word amplitudeU[3] = { 0x3FFF, 0x3FFF, 0x3FFF };
-word amplitudeI[3] = { 0x3FFF, 0x3FFF, 0x3FFF };
-word DCComponentU[3] = { 0x7FFF, 0x7FFF, 0x7FFF };
-word DCComponentI[3] = { 0x7FFF, 0x7FFF, 0x7FFF };
+word amplitudeU[3] = { 0x4000, 0x4000, 0x4000 };
+word amplitudeI[3] = { 0x4000, 0x4000, 0x4000 };
+word DCComponentU[3] = { 0x8000, 0x8000, 0x8000 };
+word DCComponentI[3] = { 0x8000, 0x8000, 0x8000 };
 word tableStepU[3] = { 266, 266, 266 };
 word tableStepI[3] = { 266, 266, 266 };
 word u[3] = {0, 0, 0};
@@ -89,7 +89,7 @@ void setParameters() {
       // 0x41 is Ascii for 'A'. 
       case 0x41: 
         if (outputType == 0x55) amplitudeU[phase_id - 1] = dataBytes;
-        else if (outputType == 0x49) amplitudeI[phase_id - 1] = dataBytes; 
+        else if (outputType == 0x49) amplitudeI[phase_id - 1] = dataBytes;
         break;
 
       // 0x46 is Ascii for 'F'.
@@ -167,8 +167,8 @@ void loop() {
   // if the received byte is 0x53, call the setup function
   if (Serial.available() > 0 && Serial.read() == 0x53) setParameters();
 
-  word uN = 0x7FFF;
-  word iN = 0x7FFF;
+  word uN = 0x8000;
+  word iN = 0x8000;
 
   for (byte line = 0; line < 3; line++) {
     
@@ -177,13 +177,16 @@ void loop() {
     indexI[line] += tableStepI[line];
     if (indexI[line] > tableLength) indexI[line] -= tableLength;
 
-    u[line] = (word) amplitudeU[line] * sineTable[indexU[line]] + DCComponentU[line];
+    u[line] = (word) amplitudeU[line] * sineTable[indexU[line]] + 0x8000;
+    if (sineTable[indexU[line]] < 0) u[line] -= 1;
     valdytiSAK(WRITE_N_UPDATE_N, line, u[line]);
-    i[line] = (word) amplitudeI[line] * sineTable[indexI[line]] + DCComponentI[line];
+
+    i[line] = (word) amplitudeI[line] * sineTable[indexI[line]] + 0x8000;
+    if (sineTable[indexI[line]] < 0) i[line] -= 1;
     valdytiSAK(WRITE_N_UPDATE_N, line + 4, i[line]);
 
-    uN += (u[line] - DCComponentU[line]);
-    iN += (i[line] - DCComponentI[line]);
+    uN += (u[line] - 0x8000);
+    iN += (i[line] - 0x8000);
   }
 
   valdytiSAK(WRITE_N_UPDATE_N, 3, uN);

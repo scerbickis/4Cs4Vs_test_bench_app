@@ -1,1 +1,4 @@
-print("U".casefold()+"1")
+import serial
+
+serial.Serial('COM6', 115200)
+while True: pass

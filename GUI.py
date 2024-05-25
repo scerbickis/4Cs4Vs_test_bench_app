@@ -2,9 +2,10 @@ import tkinter as tk
 import serial
 import logging
 import fnmatch
+import threading
+import time
 import matplotlib.pyplot as plt
 import numpy as np
-import itertools
 from serial.tools import list_ports
 from math import sqrt, hypot, atan2
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -329,22 +330,35 @@ def connect():
             global ser
             ser = serial.Serial(selected_comport, baudrate=115200)
             logging.info(f"Connected to {selected_comport}")
+            statusbar.config(text=f"Connected to {selected_comport}")
+            threading.Thread(target=check_connection).start()
         except serial.SerialException as e:
             logging.error(f"Could not connect to {selected_comport}: {e}")
-    else:
-        logging.error("No COM port selected")
+            tk.messagebox.showerror(
+                "Connection Error", 
+                f"Could not connect to {selected_comport}:\n"
+                f"Error: {e}"
+            )
 
 def menu(root: tk.Tk):
 
     menubar = tk.Menu(root)
-    comport_menu = tk.Menu(menubar, tearoff=0)
-    comports = list_ports.comports()
 
-    for comport in comports:
-        comport_menu.add_command(
-            label=comport.device, 
-            command=lambda c=comport.device: select_comport(c)
-        )
+    def update_comports():
+        # Clear the menu
+        comport_menu.delete(0, 'end')
+
+        # Add the updated list of comports
+        comports = list_ports.comports()
+        for comport in comports:
+            comport_menu.add_command(
+                label=comport.device, 
+                command=lambda c=comport.device: select_comport(c)
+            )
+
+    comport_menu = tk.Menu(menubar, tearoff=0)
+    comport_menu.configure(postcommand=update_comports)
+
 
     graphs_menu = tk.Menu(menubar, tearoff=0)
     graphs_menu.add_command(
@@ -371,6 +385,16 @@ def menu(root: tk.Tk):
 
     root.config(menu=menubar)
 
+def check_connection():
+    while True:
+        # Sleep for a while
+        time.sleep(1)
+        # Check if the device is still connected
+        if not ser.is_open:
+            # Update the status bar
+            statusbar.config(text="Not connected")
+            # Stop the thread
+            break
 
 
 def update(value: str, parameter_id: int, type: str, phase_id: int, type_changed = False):
@@ -401,7 +425,7 @@ def update(value: str, parameter_id: int, type: str, phase_id: int, type_changed
                 DAC_rms = rms_values[signal_id] / current_sensor_coefficient
                 DAC_amplitude = amplitude[signal_id] / current_sensor_coefficient
 
-            packet += int(round_half_up(DAC_amplitude * 6553.5 )).to_bytes(2)    
+            packet += int(round_half_up(DAC_amplitude * 3276.7 )).to_bytes(2)    
             logging.info(
                 f"Packet: {packet.hex('|')} - "
                 f"DAC Amplitude: {round_half_up(DAC_amplitude, 3)} {units} - "
@@ -965,6 +989,8 @@ def main():
     global phase_angle
     global colors, lines
 
+    global statusbar
+
     global rms_values, rms_entries
     global powers, power_entries
 
@@ -1112,6 +1138,9 @@ def main():
     harmonics_order_var = harmonic_control_variables["var"]
 
     harmonic_spinbox.config(state="disabled")
+
+    statusbar = tk.Label(root, text="Not Connected", bd=1, relief=tk.SUNKEN, anchor=tk.W)
+    statusbar.grid(row=2, column=0, columnspan=2, sticky='we')
 
     root.protocol("WM_DELETE_WINDOW", on_closing)
     root.mainloop()
