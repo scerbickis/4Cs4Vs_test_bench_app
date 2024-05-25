@@ -18,9 +18,11 @@ def round_half_up(float_number: float, precision: int = 0) -> float:
     else:
         return int(float_number * factor - 0.5) / factor
 
+
 def update_time_plot(type: str):
 
     if "harmonic_spinbox" not in globals() or\
+        "signal_time_plots" not in globals() or\
         signal_time_plots[type] == []: 
             return
 
@@ -29,29 +31,40 @@ def update_time_plot(type: str):
 
     for signal_plot, type_signal in zip(signal_time_plots[type], certain_type_signals):
         signal_plot.set_ydata(type_signal)
-    axes[type].relim()
-    axes[type].autoscale_view()
+    time_plot_axes[type].relim()
+    time_plot_axes[type].autoscale_view()
     
     #TODO: Fix axes limits update problem
     canvas_lines[type].draw_idle()
     canvas_lines[type].get_tk_widget().update_idletasks()
-    
-    
-def plot_time_graph(frame: tk.Frame, row: int, column: int, type = "U"):
+        
+def plot_time_graph(frame: tk.Frame, row: int, column: int, type: str):
+
+    global time_plot_axes
+    global signal_time_plots
+    global canvas_lines
+
+    if "canvas_lines" not in globals():
+        canvas_lines = {
+            "U": None,
+            "I": None
+        }
+    if "signal_time_plots" not in globals():
+        signal_time_plots = {
+            "U": [],
+            "I": []
+        }
+    if "time_plot_axes" not in globals():
+        time_plot_axes = {
+            "U": None,
+            "I": None
+        }
 
     def on_closing():
         signal_time_plots[type] = []
         child_window.destroy()
 
     if signal_time_plots[type] != []: return
-
-    global axes
-    
-    if "axes" not in globals():
-        axes = {
-            "U": None,
-            "I": None
-        }
 
     if type == "U":
         ylabel = "Amplitude (V Pk-Pk)"
@@ -65,22 +78,22 @@ def plot_time_graph(frame: tk.Frame, row: int, column: int, type = "U"):
     type_keys = fnmatch.filter(signals.keys(), f"{type.casefold()}*")
     certain_type_signals = [ signals[key] for key in type_keys ]
     # Create a figure and a subplot
-    fig, axes[type] = plt.subplots()
+    fig, time_plot_axes[type] = plt.subplots()
     fig.set_size_inches(6, 4)
-    axes[type].set_ylim(-1 * max_value, max_value)
-    axes[type].set_ylabel(ylabel)
-    axes[type].set_xlabel("Time (ms)")
-    axes[type].grid(linewidth=0.5, color='lightgray', linestyle='--')
-    axes[type].axhline(0, color='black', linewidth=0.5)  # Add x-axis
+    time_plot_axes[type].set_ylim(-1 * max_value, max_value)
+    time_plot_axes[type].set_ylabel(ylabel)
+    time_plot_axes[type].set_xlabel("Time (ms)")
+    time_plot_axes[type].grid(linewidth=0.5, color='lightgray', linestyle='--')
+    time_plot_axes[type].axhline(0, color='black', linewidth=0.5)  # Add x-axis
 
     loop_params = zip(certain_type_signals, colors, lines)
 
     for type_signal, color, line_name in loop_params:
 
-        signal_plot, = axes[type].plot(t, type_signal, label = line_name, color=color)
+        signal_plot, = time_plot_axes[type].plot(t, type_signal, label = line_name, color=color)
         signal_time_plots[type].append(signal_plot)
 
-    axes[type].legend(loc = "upper right", bbox_to_anchor=(1, 1), prop={'size': 7})
+    time_plot_axes[type].legend(loc = "upper right", bbox_to_anchor=(1, 1), prop={'size': 7})
 
     child_window = tk.Toplevel(frame)
     child_window.title(title)
@@ -103,15 +116,19 @@ def plot_time_graph(frame: tk.Frame, row: int, column: int, type = "U"):
         pady=10
     )
 
-def update_phasor_plot():
+def update_phasor_plot(type: str):
 
-    if not "phasors" in globals(): return
+    if not "phasor_plots" in globals(): return
 
-    angle_U = itertools.islice(phase_angle.values(), 3)
+    type_keys = fnmatch.filter(amplitude.keys(), f"{type.casefold()}*")
+    certain_type_amplitudes = [ amplitude[key] for key in type_keys ]
+    type_keys = fnmatch.filter(phase_angle.keys(), f"{type.casefold()}*")
+    certain_type_angles = [ phase_angle[key] for key in type_keys ]
 
-    angles_rad = [ np.pi * p / 180 for p in angle_U ]
+    angles_rad = [ np.pi * p / 180 for p in certain_type_angles ]
 
-    loop_params = zip(phasors, angles_rad, amplitude.values())
+    loop_params = zip(phasor_plots[type], angles_rad[:-1], certain_type_amplitudes[:-1])
+
 
     aN = bN = 0
 
@@ -125,39 +142,73 @@ def update_phasor_plot():
         aN += magnitude * np.cos(angle)
         bN += magnitude * np.sin(angle)
 
-    phasorN.set_UVC(
+    phasor_plots[type][-1].set_UVC(
         atan2(bN, aN), # U
         hypot(aN, bN) , # V
     )
 
+    phasor_axes[type].relim()
+    phasor_axes[type].autoscale_view()
 
-    canvas_phasors.draw_idle()
+    canvas_phasors[type].draw_idle()
+    canvas_phasors[type].get_tk_widget().update_idletasks()
 
-def plot_phasors(frame: tk.Frame, row: int, column: int):
+def plot_phasors(frame: tk.Frame, row: int, column: int, type: str):
 
-    global phasors, canvas_phasors
-    global phasorN
+    global phasor_axes
+    global phasor_plots
+    global canvas_phasors
 
-    phasors = []
 
-    fig, ax = plt.subplots(subplot_kw={'projection': 'polar'})
-    ax.set_ylim(0, 10)
+    if "canvas_phasors" not in globals():
+        canvas_phasors = {
+            "U": None,
+            "I": None
+        }
+    if "phasor_plots" not in globals():
+        phasor_plots = {
+            "U": [],
+            "I": []
+        }
+    if "phasor_axes" not in globals():
+        phasor_axes = {
+            "U": None,
+            "I": None
+        }
+
+    def on_closing():
+        phasor_plots[type] = []
+        child_window.destroy()
+
+    if phasor_plots[type] != []: return
+
+    if type == "U":
+        title = "Phasor Graph (U)"
+        max_value = amplitude["u1"] * 1.1
+    elif type == "I":
+        title = "Phasor Graph (I)"
+        max_value = amplitude["i1"] * 1.1
+
+    fig, phasor_axes[type] = plt.subplots(subplot_kw={'projection': 'polar'})
+    phasor_axes[type].set_ylim(0, max_value)
     # ax.set_rticks([i for i in range(0, 401, 100)])
-    ax.set_xticks(np.linspace(0, 2*np.pi, 12, endpoint=False))
-    ax.grid(linewidth=0.5, color='lightgray', linestyle='--')
+    phasor_axes[type].set_xticks(np.linspace(0, 2*np.pi, 12, endpoint=False))
+    phasor_axes[type].grid(linewidth=0.5, color='lightgray', linestyle='--')
 
-    amplitude_U = itertools.islice(amplitude.values(), 3)
-    angle_U = itertools.islice(phase_angle.values(), 3)
+    type_keys = fnmatch.filter(amplitude.keys(), f"{type.casefold()}*")
+    certain_type_amplitudes = [ amplitude[key] for key in type_keys ]
+    type_keys = fnmatch.filter(phase_angle.keys(), f"{type.casefold()}*")
+    certain_type_angles = [ phase_angle[key] for key in type_keys ]
 
-    angles_rad = [ np.pi * p / 180 for p in angle_U ]
+    angles_rad = [ np.pi * p / 180 for p in certain_type_angles[:-1] ]
 
-    loop_params = zip(angles_rad, amplitude_U, colors)
+    loop_params = zip(angles_rad, certain_type_amplitudes, colors)
 
     aN = bN = 0
 
     for angle, magnitude, color in loop_params:
 
-        phasor = ax.quiver(
+        phasor = phasor_axes[type].quiver(
             0, # X
             0, # Y
             angle, # U
@@ -169,12 +220,12 @@ def plot_phasors(frame: tk.Frame, row: int, column: int):
             zorder=3
         )
         
-        phasors.append(phasor)
+        phasor_plots[type].append(phasor)
 
         aN += magnitude * np.cos(angle)
         bN += magnitude * np.sin(angle)
 
-    phasorN = ax.quiver(
+    phasorN = phasor_axes[type].quiver(
             0, # X
             0, # Y
             atan2(bN, aN), # U
@@ -185,15 +236,20 @@ def plot_phasors(frame: tk.Frame, row: int, column: int):
             color=colors[-1],
             zorder = 3
         )
+    phasor_plots[type].append(phasorN)
 
     child_window = tk.Toplevel(frame)
-    child_window.title("Phasor Graph (U)")
+    child_window.title(title)
+    child_window.protocol(
+        "WM_DELETE_WINDOW", 
+        on_closing
+    )
 
-    canvas_phasors = FigureCanvasTkAgg(fig, master=child_window)
+    canvas_phasors[type] = FigureCanvasTkAgg(fig, master=child_window)
 
-    canvas_phasors.draw()
+    canvas_phasors[type].draw_idle()
 
-    canvas_widget = canvas_phasors.get_tk_widget()
+    canvas_widget = canvas_phasors[type].get_tk_widget()
 
     canvas_widget.grid(
         row=row, 
@@ -204,6 +260,7 @@ def plot_phasors(frame: tk.Frame, row: int, column: int):
         pady=10
     )
     child_window.columnconfigure(0, weight=1)
+
     
 def calculate_signals():
 
@@ -300,10 +357,11 @@ def menu(root: tk.Tk):
     )
     graphs_menu.add_command(
         label="Phasor (U)",
-        command=lambda: plot_phasors(frame_phasor_plot, row=0, column=0)
+        command=lambda: plot_phasors(frame_phasor_plot, row=0, column=0, type="U")
     )
     graphs_menu.add_command(
-        label="Phasor (I)"
+        label="Phasor (I)",
+        command=lambda: plot_phasors(frame_phasor_plot, row=0, column=0, type="I")
     )
 
 
@@ -312,6 +370,7 @@ def menu(root: tk.Tk):
 
 
     root.config(menu=menubar)
+
 
 
 def update(value: str, parameter_id: int, type: str, phase_id: int, type_changed = False):
@@ -501,10 +560,11 @@ def update(value: str, parameter_id: int, type: str, phase_id: int, type_changed
             )
     
     update_time_plot(type)
-    update_phasor_plot()
+    update_phasor_plot(type)
 
     # Send the command to the Arduino
     if "ser" in globals(): ser.write(packet)
+
 
 
 def parameter_controls(
@@ -523,14 +583,11 @@ def parameter_controls(
 ):
     
     def update_spinbox(*args):
-        try:
-            new_value = parameter_var.get()
-            if new_value > max_value: new_value = max_value
-            elif new_value < min_value: new_value = min_value
-            parameter_var.set(new_value)
-            update_function(new_value, parameter_id, type, phase_id)
-        except ValueError as e:
-            logging.error(e)
+        new_value = parameter_var.get()
+        if new_value > max_value: new_value = max_value
+        elif new_value < min_value: new_value = min_value
+        parameter_var.set(new_value)
+        update_function(new_value, parameter_id, type, phase_id)
     
     control_variables = {}
 
@@ -911,19 +968,7 @@ def main():
     global rms_values, rms_entries
     global powers, power_entries
 
-    global signal_time_plots
-    global canvas_lines
-
-    canvas_lines = {
-        "U": None,
-        "I": None
-    }
-
-    signal_time_plots = {
-        "U": [],
-        "I": []
-    }
-
+    
     def on_closing():
         plt.close('all')
         root.destroy()
