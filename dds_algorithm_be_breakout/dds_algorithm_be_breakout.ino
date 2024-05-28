@@ -102,12 +102,12 @@ void setParameters() {
       case 0x50: {
         if (outputType == 0x55) {
           phaseU[phase_id - 1] = (word) dataBytes * tableLength / 360;
-          for (byte line = 0; line < 3; line++) indexU[line] = phaseU[line];
         }
         else if (outputType == 0x49) {
           phaseI[phase_id - 1] = (word) dataBytes * tableLength / 360;
-          for (byte line = 0; line < 3; line++) indexI[line] = phaseI[line];
         }
+        for (byte line = 0; line < 3; line++) indexU[line] = phaseU[line];
+        for (byte line = 0; line < 3; line++) indexI[line] = phaseI[line];
         break;
       }
 
