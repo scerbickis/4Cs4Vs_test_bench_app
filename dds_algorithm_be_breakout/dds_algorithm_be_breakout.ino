@@ -14,14 +14,14 @@ const byte SCOPE_10_10 = 0x03;
 
 byte phase_id = 1;// Phase id
 
-word amplitudeU[3] = { 0x4000, 0x4000, 0x4000 };
-word amplitudeI[3] = { 0x4000, 0x4000, 0x4000 };
-word DCComponentU[3] = { 0x8000, 0x8000, 0x8000 };
-word DCComponentI[3] = { 0x8000, 0x8000, 0x8000 };
-word tableStepU[3] = { 266, 266, 266 };
-word tableStepI[3] = { 266, 266, 266 };
-word u[3] = {0, 0, 0};
-word i[3] = {0, 0, 0};
+word amplitudeU[3] = { 0x21F5, 0x21F5, 0x21F5};
+word amplitudeI[3] = { 0x0412, 0x0412, 0x0412};
+word DCComponentU[3] = { 0x8000, 0x8000, 0x8000};
+word DCComponentI[3] = { 0x8000, 0x8000, 0x8000};
+word tableStepU[3] = { 271, 271, 271};
+word tableStepI[3] = { 271, 271, 271};
+word u[3] = { 0, 0, 0};
+word i[3] = { 0, 0, 0};
 // Amplitude, frequency and phase of the each phase
 word phaseU[3] = {0, (word) 2 * tableLength/3, (word) tableLength/3}; 
 word phaseI[3] = {0, (word) 2 * tableLength/3, (word) tableLength/3}; 

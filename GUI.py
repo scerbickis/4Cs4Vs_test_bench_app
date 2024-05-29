@@ -69,11 +69,11 @@ def plot_time_graph(frame: tk.Frame, row: int, column: int, type: str):
 
     if type == "U":
         ylabel = "Amplitude (V Pk-Pk)"
-        title = "U(t) Graph"
+        title = "U(t) Plot"
         max_value = amplitude["u1"] * 1.1
     elif type == "I":
         ylabel = "Amplitude (A Pk-Pk)"
-        title = "I(t) Graph"
+        title = "I(t) Plot"
         max_value = amplitude["i1"] * 1.1
 
     type_keys = fnmatch.filter(signals.keys(), f"{type.casefold()}*")
@@ -192,7 +192,7 @@ def plot_phasors(frame: tk.Frame, row: int, column: int, type: str):
 
     fig, phasor_axes[type] = plt.subplots(subplot_kw={'projection': 'polar'})
     phasor_axes[type].set_ylim(0, max_value)
-    # ax.set_rticks([i for i in range(0, 401, 100)])
+    phasor_axes[type].set_rticks([i for i in range(0, int(max_value * 1.1), int(max_value // 5))])
     phasor_axes[type].set_xticks(np.linspace(0, 2*np.pi, 12, endpoint=False))
     phasor_axes[type].grid(linewidth=0.5, color='lightgray', linestyle='--')
 
@@ -380,7 +380,7 @@ def menu(root: tk.Tk):
 
 
     menubar.add_cascade(label="Connect to Test Bench", menu=comport_menu)
-    menubar.add_cascade(label="Graphs", menu=graphs_menu)
+    menubar.add_cascade(label="Plots", menu=graphs_menu)
 
 
     root.config(menu=menubar)
@@ -436,7 +436,8 @@ def update(value: str, parameter_id: int, type: str, phase_id: int, type_changed
         case 0x46:
             frequency[phase_id] = int(value)
             update_rms_values()
-            packet += int(round_half_up(float(value) * 5.32)).to_bytes(2)
+            # packet += int(round_half_up(float(value) * 5.32)).to_bytes(2)
+            packet += int(value).to_bytes(2)
             logging.info(
                 f"Packet: {packet.hex('|')} "
                 f"- Frequency: {value} Hz"
@@ -769,16 +770,18 @@ def main_parameters_controls(
 
     
     units = [ "Hz", "Hz", "V", "A", "°", "°" ]
-    min_values = [ 0, 0, 0, 0, 0, 0 ]
+    min_values = [ 0 ] * 6
     max_values = [ 
-        100, 
-        100, 
+        # 100, 
+        # 100, 
+        0xFFFF,
+        0xFFFF,
         int(10 * voltage_sensor_coefficient * sqrt(2)), 
         int(10 * current_sensor_coefficient * sqrt(2)),
         360,  
         360
      ]
-    resolutions = [ 1, 1, 1, 1, 1, 1 ]
+    resolutions = [ 1 ] * 6
     default_amplitudes = {
         "u1": int(round_half_up(amplitude["u1"])),
         "u2": int(round_half_up(amplitude["u2"])),
@@ -792,17 +795,10 @@ def main_parameters_controls(
         [ 50, 50, default_amplitudes["u2"], default_amplitudes["i2"], 240, 240 ],
         [ 50, 50, default_amplitudes["u3"], default_amplitudes["i3"], 120, 120 ]
     ]
-    update_functions = [
-        update, 
-        update, 
-        update, 
-        update, 
-        update, 
-        update
-     ]
+    update_functions = [ update ] * 6
     parameter_ids = [ 0x46, 0x46, 0x41, 0x41, 0x50,  0x50 ]
     types = [ "U", "I", "U", "I", "U",  "I" ]
-    
+
     for c, line in enumerate(lines):
 
         column_label = tk.Label(frame, text=line)
@@ -828,7 +824,7 @@ def main_parameters_controls(
 
 
         for r, (label, unit, min_value, max_value, resolution, default_value, update_function) in enumerate(loop_params, start=1):
-
+            
             parameter_control_variables = parameter_controls(
                 frame=frame,
                 row=start_row + r,
