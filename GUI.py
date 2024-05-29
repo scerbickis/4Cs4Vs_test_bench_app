@@ -10,6 +10,8 @@ from serial.tools import list_ports
 from math import sqrt, hypot, atan2
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
+freq_step_mHz = 0.18546
+fifty_hz_step = 270
 
 def round_half_up(float_number: float, precision: int = 0) -> float:
 
@@ -415,7 +417,8 @@ def update(value: str, parameter_id: int, type: str, phase_id: int, type_changed
     match parameter_id:
         # 0x41 is the ASCII code for 'A' (A - amplitude)
         case 0x41:
-            amplitude[signal_id] = int(value)
+            # amplitude[signal_id] = int(value)
+            amplitude[signal_id] = float(value)
             update_rms_values()
 
             if type == "U":
@@ -425,19 +428,24 @@ def update(value: str, parameter_id: int, type: str, phase_id: int, type_changed
                 DAC_rms = rms_values[signal_id] / current_sensor_coefficient
                 DAC_amplitude = amplitude[signal_id] / current_sensor_coefficient
 
-            packet += int(round_half_up(DAC_amplitude * 3276.7 )).to_bytes(2)    
+            # packet += int(round_half_up(DAC_amplitude * 3276.7 )).to_bytes(2)    
+            packet += int(round_half_up(amplitude[signal_id] * 3276.7 )).to_bytes(2)    
+            # logging.info(
+            #     f"Packet: {packet.hex('|')} - "
+            #     f"DAC Amplitude: {round_half_up(DAC_amplitude, 3)} {units} - "
+            #     f"DAC RMS: {round_half_up(DAC_rms, 3)} {units}"
+            # )
             logging.info(
                 f"Packet: {packet.hex('|')} - "
-                f"DAC Amplitude: {round_half_up(DAC_amplitude, 3)} {units} - "
-                f"DAC RMS: {round_half_up(DAC_rms, 3)} {units}"
+                f"DAC Amplitude: {amplitude[signal_id]} {units} - "
+                f"DAC RMS: {amplitude[signal_id]/sqrt(2)} {units}"
             )
 
         # 0x46 is the ASCII code for 'F' (F - frequency)
         case 0x46:
-            frequency[phase_id] = int(value)
+            frequency[phase_id] = float(value)
             update_rms_values()
-            # packet += int(round_half_up(float(value) * 5.32)).to_bytes(2)
-            packet += int(value).to_bytes(2)
+            packet += int(round_half_up(frequency[phase_id] / freq_step_mHz)).to_bytes(2)
             logging.info(
                 f"Packet: {packet.hex('|')} "
                 f"- Frequency: {value} Hz"
@@ -603,6 +611,7 @@ def parameter_controls(
     resolution: float|int,
     default_value: int|float,
     parameter_id: int,
+    values = [],
     type = "B",
     phase_id = 1
 ):
@@ -611,7 +620,11 @@ def parameter_controls(
         new_value = parameter_var.get()
         if new_value > max_value: new_value = max_value
         elif new_value < min_value: new_value = min_value
-        parameter_var.set(new_value)
+        elif parameter_id == 0x46:
+            new_value = min(values, key=lambda x: abs(x - new_value))
+            value_to_show = round_half_up(new_value, 3)
+        else: value_to_show = new_value
+        parameter_var.set(value_to_show)
         update_function(new_value, parameter_id, type, phase_id)
     
     control_variables = {}
@@ -623,20 +636,26 @@ def parameter_controls(
 
     control_variables["var"] = parameter_var
 
-    parameter_spinbox = tk.Spinbox(
-        frame,
-        from_=min_value,
-        to=max_value,
-        increment=resolution,
-        width=7,
-        textvariable=parameter_var,
-        command=lambda *args: update_spinbox(
-            parameter_var.get(),
-            parameter_id,
-            type,
-            phase_id
+    if parameter_id == 0x46:
+        parameter_spinbox = tk.Spinbox(
+            frame,
+            width=8,
+            textvariable=parameter_var,
+            values=values,
+            command=update_spinbox
         )
-    )
+        parameter_var.set(default_value)
+
+    else:
+        parameter_spinbox = tk.Spinbox(
+            frame,
+            from_=min_value,
+            to=max_value,
+            increment=resolution,
+            width=8,
+            textvariable=parameter_var,
+            command=update_spinbox
+        )
     parameter_spinbox.grid(
         row=row, 
         column=column, 
@@ -772,16 +791,16 @@ def main_parameters_controls(
     units = [ "Hz", "Hz", "V", "A", "°", "°" ]
     min_values = [ 0 ] * 6
     max_values = [ 
-        # 100, 
-        # 100, 
-        0xFFFF,
-        0xFFFF,
+        freq_step_mHz * 533,
+        freq_step_mHz * 533,
         int(10 * voltage_sensor_coefficient * sqrt(2)), 
         int(10 * current_sensor_coefficient * sqrt(2)),
         360,  
         360
      ]
-    resolutions = [ 1 ] * 6
+    # resolutions = [0.01] * 2 + [ 1 ] * 4
+    resolutions = [0.001] * 4 + [ 1 ] * 2
+    freq_values = [ f * freq_step_mHz for f in range(1, 534) ]
     default_amplitudes = {
         "u1": int(round_half_up(amplitude["u1"])),
         "u2": int(round_half_up(amplitude["u2"])),
@@ -790,10 +809,16 @@ def main_parameters_controls(
         "i2": int(round_half_up(amplitude["i2"])),
         "i3": int(round_half_up(amplitude["i3"]))
     }
+    default_freq = freq_step_mHz * fifty_hz_step
+    # default_values = [
+    #     [ default_freq, default_freq, default_amplitudes["u1"], default_amplitudes["i1"], 0,  0 ],
+    #     [ default_freq, default_freq, default_amplitudes["u2"], default_amplitudes["i2"], 240, 240 ],
+    #     [ default_freq, default_freq, default_amplitudes["u3"], default_amplitudes["i3"], 120, 120 ]
+    # ]
     default_values = [
-        [ 50, 50, default_amplitudes["u1"], default_amplitudes["i1"], 0,  0 ],
-        [ 50, 50, default_amplitudes["u2"], default_amplitudes["i2"], 240, 240 ],
-        [ 50, 50, default_amplitudes["u3"], default_amplitudes["i3"], 120, 120 ]
+        [ default_freq, default_freq, 0.1, default_amplitudes["i1"], 0,  0 ],
+        [ default_freq, default_freq, 0.1, default_amplitudes["i2"], 240, 240 ],
+        [ default_freq, default_freq, 0.1, default_amplitudes["i3"], 120, 120 ]
     ]
     update_functions = [ update ] * 6
     parameter_ids = [ 0x46, 0x46, 0x41, 0x41, 0x50,  0x50 ]
@@ -837,7 +862,8 @@ def main_parameters_controls(
                 default_value=default_value,
                 parameter_id=parameter_ids[r - 1],
                 type=types[r - 1],
-                phase_id=c + 1
+                phase_id=c + 1,
+                values = freq_values
             )
 
     

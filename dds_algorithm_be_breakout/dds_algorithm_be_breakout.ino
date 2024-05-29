@@ -18,8 +18,8 @@ word amplitudeU[3] = { 0x21F5, 0x21F5, 0x21F5};
 word amplitudeI[3] = { 0x0412, 0x0412, 0x0412};
 word DCComponentU[3] = { 0x8000, 0x8000, 0x8000};
 word DCComponentI[3] = { 0x8000, 0x8000, 0x8000};
-word tableStepU[3] = { 271, 271, 271};
-word tableStepI[3] = { 271, 271, 271};
+word tableStepU[3] = { 270, 270, 270};
+word tableStepI[3] = { 270, 270, 270};
 word u[3] = { 0, 0, 0};
 word i[3] = { 0, 0, 0};
 // Amplitude, frequency and phase of the each phase
@@ -62,6 +62,13 @@ void calculateSineTable(){
 
 }
 
+void reset_phase() {
+  for (byte line = 0; line < 3; line++) {
+    indexU[line] = phaseU[line];
+    indexI[line] = phaseI[line];
+  }
+}
+
 void setParameters() {
   
   // Read the parameter id from the serial port
@@ -96,6 +103,7 @@ void setParameters() {
       case 0x46: 
         if (outputType == 0x55) tableStepU[phase_id - 1] = dataBytes;
         else if (outputType == 0x49) tableStepI[phase_id - 1] = dataBytes;
+        reset_phase();
         break;
 
       // 0x50 is Ascii for 'P'.
@@ -106,8 +114,7 @@ void setParameters() {
         else if (outputType == 0x49) {
           phaseI[phase_id - 1] = (word) dataBytes * tableLength / 360;
         }
-        for (byte line = 0; line < 3; line++) indexU[line] = phaseU[line];
-        for (byte line = 0; line < 3; line++) indexI[line] = phaseI[line];
+        reset_phase();
         break;
       }
 
