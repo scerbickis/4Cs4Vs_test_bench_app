@@ -265,6 +265,7 @@ def plot_phasors(frame: tk.Frame, row: int, column: int, type: str):
     child_window.columnconfigure(0, weight=1)
 
     
+    
 def calculate_signals():
 
     global signals, t
@@ -935,14 +936,16 @@ def rms_measurements(frame: tk.Frame, row: int, column: int):
 
 def power_measurements(frame: tk.Frame, row: int, column: int):
 
-    labels = [
-        "Active Power (W):",
-        "Reactive Power (VAR):",
-        "Apparent Power (VA):",
+    global power_labels
+
+    power_labels = [
+        "Active Power (kW):",
+        "Reactive Power (kVAR):",
+        "Apparent Power (kVA):",
         "Power Factor:"
     ]
 
-    for i, label in enumerate(labels, start=1):
+    for i, label in enumerate(power_labels, start=1):
 
         parameter_label = tk.Label(frame, text=label)
         parameter_label.grid(
@@ -956,7 +959,7 @@ def power_measurements(frame: tk.Frame, row: int, column: int):
 
     for c, line in enumerate(lines):
 
-        for r, label in enumerate(labels):
+        for r, label in enumerate(power_labels):
 
             parameter_entry = tk.Entry(frame, width=9)
             parameter_entry.grid(
@@ -973,18 +976,23 @@ def update_power_values():
 
     indexes = ["1", "2", "3", "N"]
 
+    powers["p"] = powers["q"] = powers["s"] = 0
+
     for i in indexes:
 
         phase_difference = phase_angle["u" + i] - phase_angle["i" + i]
-        powers["p" + i] = rms_values["u" + i] * rms_values["i" + i] * np.cos(phase_difference)
-        powers["q" + i] = rms_values["u" + i] * rms_values["i" + i] * np.sin(phase_difference)
         powers["s" + i] = rms_values["u" + i] * rms_values["i" + i]
+        powers["p" + i] = powers["s" + i] * np.cos(phase_difference)
+        powers["q" + i] = powers["s" + i] * np.sin(phase_difference)
         powers["pf" + i] = powers["p" + i] / powers["s" + i]
         powers["p"] += powers["p" + i]
         powers["q"] += powers["q" + i]
         powers["s"] += powers["s" + i]
 
     powers["pf"] = powers["p"] / powers["s"]
+
+    for power_type in powers.keys():
+        powers[power_type] = round_half_up(powers[power_type] / 1000, 3)
 
     for entry, power_value in zip(power_entries, powers.values()):
             
